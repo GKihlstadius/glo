@@ -182,35 +182,35 @@ export class CandidateStore {
 
     // Genre affinity
     movie.genres?.forEach(genre => {
-      const affinity = this.tasteProfile.genres[genre] || 0;
+      const affinity = this.tasteProfile.genres?.[genre] ?? 0;
       score += affinity * 15;
     });
 
     // Mood affinity
     movie.mood?.forEach(mood => {
-      const affinity = this.tasteProfile.moodWeights[mood] || 0;
+      const affinity = this.tasteProfile.moodWeights?.[mood] ?? 0;
       score += affinity * 10;
     });
 
     // Era affinity
     if (movie.era) {
-      const affinity = this.tasteProfile.eraWeights[movie.era] || 0;
+      const affinity = this.tasteProfile.eraWeights?.[movie.era] ?? 0;
       score += affinity * 8;
     }
 
     // Runtime preference
-    const runtimeDiff = Math.abs(movie.runtime - this.tasteProfile.preferredRuntime);
+    const runtimeDiff = Math.abs(movie.runtime - (this.tasteProfile.preferredRuntime ?? 120));
     score -= runtimeDiff * 0.1;
 
     // Director affinity
     movie.directors?.forEach(director => {
-      const affinity = this.tasteProfile.directors[director] || 0;
+      const affinity = this.tasteProfile.directors?.[director] ?? 0;
       score += affinity * 20;
     });
 
     // Cast affinity
     movie.cast?.forEach(actor => {
-      const affinity = this.tasteProfile.cast[actor] || 0;
+      const affinity = this.tasteProfile.cast?.[actor] ?? 0;
       score += affinity * 12;
     });
 
