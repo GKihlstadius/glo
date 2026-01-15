@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,7 @@ import { Movie } from '@/lib/types';
 import { SWIPE, COLORS } from '@/lib/constants';
 import { getStreamingOffers } from '@/lib/movies';
 import { ProviderRow } from './ProviderButton';
-import { PLACEHOLDER_BLUR_HASH, IMAGE_TRANSITION, prefetchImage } from '@/lib/image-cache';
+import { PLACEHOLDER_BLUR_HASH, IMAGE_TRANSITION } from '@/lib/image-cache';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -58,13 +58,6 @@ export function SwipeCard({
   const offers = useMemo(() => {
     return getStreamingOffers(movie.id, countryCode);
   }, [movie.id, countryCode]);
-
-  // Prefetch poster if it's an Unsplash URL
-  useEffect(() => {
-    if (movie.posterUrl) {
-      prefetchImage(movie.posterUrl);
-    }
-  }, [movie.posterUrl]);
 
   const triggerHaptic = () => {
     if (haptic) {

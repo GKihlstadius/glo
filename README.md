@@ -10,6 +10,15 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - **No onboarding**: App launches straight into swipe. Country auto-detected from device.
 - **One-time purchase**: Everything unlocked. No premium tiers, no paywalls.
 - **Swedish for Sweden**: Full localization when detected.
+- **No AI smell**: Real movie posters from TMDB, quality-gated content, no generated art.
+
+## Data Quality Rules (NON-NEGOTIABLE)
+- All movies use official TMDB poster paths
+- No stock images, no placeholders, no AI-generated art
+- Movies must pass quality gate: rating_count >= 1000 AND rating_avg >= 6.5
+- Hidden gems exception: rating_avg >= 8.0 with 500+ votes
+- If poster fails to load, movie is removed from feed
+- Feed NEVER ends - fallback ladder ensures continuous content
 
 ## Features
 
@@ -30,14 +39,15 @@ Every movie shown can actually be watched in the country you live in. No US-only
 ### Streaming Provider Integration
 - **Real provider icons**: Netflix, Prime, Disney+, Max, Apple TV+, Viaplay, SVT, Hulu
 - **Deep linking**: Opens streaming app directly to the movie
-- **Fallback chain**: Universal link → URL scheme → Web browser
+- **Fallback chain**: Universal link -> URL scheme -> Web browser
 - **Provider sorting**: Stream offers first, then rent, then buy
 
 ### Image Pipeline
-- High-quality movie posters (800x1200)
+- Official TMDB movie posters (w500 = 500px wide)
 - Image prefetching for smooth scrolling
 - Memory + disk caching via expo-image
 - Placeholder blur hash during loading
+- Pure black background (#000000) - no gradients
 
 ### Couch Mode
 - Create a session and share via:

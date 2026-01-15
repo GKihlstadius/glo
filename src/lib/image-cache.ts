@@ -1,8 +1,17 @@
-// Image prefetch and caching utilities
+// Image prefetch and caching utilities for TMDB posters
 // Uses expo-image's built-in caching with manual prefetch triggers
 
 import { Image } from 'expo-image';
 import { Movie } from './types';
+
+// TMDB Image base URL
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
+
+// Get poster URL with specific size
+export function getTMDBPosterUrl(posterPath: string | null | undefined, size: 'w342' | 'w500' | 'w780' = 'w500'): string | null {
+  if (!posterPath) return null;
+  return `${TMDB_IMAGE_BASE}/${size}${posterPath}`;
+}
 
 // Prefetch a single image URL
 export async function prefetchImage(url: string): Promise<boolean> {
@@ -12,7 +21,7 @@ export async function prefetchImage(url: string): Promise<boolean> {
     await Image.prefetch(url);
     return true;
   } catch (error) {
-    console.log('Failed to prefetch image:', url);
+    console.log('[ImageCache] Failed to prefetch:', url);
     return false;
   }
 }
@@ -35,7 +44,8 @@ export async function prefetchMovieImages(
   options: {
     includePoster?: boolean;
     includeBackdrop?: boolean;
-  } = { includePoster: true, includeBackdrop: false }
+    posterSize?: 'w342' | 'w500' | 'w780';
+  } = { includePoster: true, includeBackdrop: false, posterSize: 'w500' }
 ): Promise<number> {
   const urls: string[] = [];
 
@@ -51,36 +61,47 @@ export async function prefetchMovieImages(
   return prefetchImages(urls);
 }
 
+// Prefetch next N movies in queue (call periodically)
+export async function prefetchUpcoming(movies: Movie[], count: number = 10): Promise<void> {
+  const toFetch = movies.slice(0, count);
+  const urls = toFetch
+    .map(m => m.posterUrl)
+    .filter(Boolean);
+
+  await prefetchImages(urls);
+}
+
+// Validate that a poster URL is loadable
+export async function validatePosterUrl(url: string): Promise<boolean> {
+  if (!url) return false;
+
+  try {
+    // Try to prefetch - if it fails, poster is invalid
+    const success = await prefetchImage(url);
+    return success;
+  } catch {
+    return false;
+  }
+}
+
 // Image quality levels for different network conditions
 export type ImageQuality = 'low' | 'medium' | 'high' | 'original';
 
 // Get optimized image URL based on quality preference
 export function getOptimizedImageUrl(
-  baseUrl: string,
+  posterPath: string | null | undefined,
   quality: ImageQuality = 'high'
-): string {
-  // For Unsplash URLs, adjust quality parameters
-  if (baseUrl.includes('unsplash.com')) {
-    const qualityParams: Record<ImageQuality, string> = {
-      low: 'w=400&q=60',
-      medium: 'w=600&q=75',
-      high: 'w=800&q=85',
-      original: 'w=1200&q=90',
-    };
+): string | null {
+  if (!posterPath) return null;
 
-    // Replace existing params or append
-    const url = new URL(baseUrl);
-    const params = qualityParams[quality].split('&');
-    params.forEach((param) => {
-      const [key, value] = param.split('=');
-      url.searchParams.set(key, value);
-    });
+  const sizeMap: Record<ImageQuality, 'w342' | 'w500' | 'w780'> = {
+    low: 'w342',
+    medium: 'w500',
+    high: 'w500',
+    original: 'w780',
+  };
 
-    return url.toString();
-  }
-
-  // For TMDB URLs, return as-is (already sized)
-  return baseUrl;
+  return getTMDBPosterUrl(posterPath, sizeMap[quality]);
 }
 
 // Cache management
@@ -91,22 +112,21 @@ export const ImageCache = {
       await Image.clearDiskCache();
       await Image.clearMemoryCache();
     } catch (error) {
-      console.log('Failed to clear image cache:', error);
+      console.log('[ImageCache] Failed to clear cache:', error);
     }
   },
 
   // Get cache size (expo-image doesn't expose this, so return estimate)
   async getSize(): Promise<number> {
-    // Return -1 to indicate unknown
     return -1;
   },
 };
 
-// Placeholder blur hash for loading states
-export const PLACEHOLDER_BLUR_HASH = 'LEHV6nWB2yk8pyo0adR*.7kCMdnj';
+// Placeholder blur hash for loading states (subtle gray)
+export const PLACEHOLDER_BLUR_HASH = 'L6PZfSi_.AyE_3t7t7R**0teleR*';
 
-// Default transition for images
+// Default transition for images - quick fade
 export const IMAGE_TRANSITION = {
-  duration: 200,
+  duration: 150,
   effect: 'cross-dissolve' as const,
 };

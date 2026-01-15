@@ -1,9 +1,9 @@
 import { Country, StreamingProvider, Mood } from './types';
 
-// Near-black, cinematic
+// Pure black, cinematic - NO gradients, NO AI feel
 export const COLORS = {
-  bg: '#0A0A0A',
-  bgCard: '#141414',
+  bg: '#000000',       // Pure black
+  bgCard: '#0A0A0A',   // Near black for cards
   text: '#FFFFFF',
   textMuted: '#666666',
   accent: '#FFFFFF',
