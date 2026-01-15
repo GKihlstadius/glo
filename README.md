@@ -6,11 +6,43 @@ A swipe-first movie decision app that helps people quickly and fairly choose wha
 Every movie shown can actually be watched in the country you live in. No US-only Netflix results shown to EU users. No guessing. No disappointment.
 
 ## Design Philosophy
-- **Invisible UI**: The movie IS the interface. Poster-first, everything else fades away.
-- **No onboarding**: App launches straight into swipe. Country auto-detected from device.
-- **One-time purchase**: Everything unlocked. No premium tiers, no paywalls.
-- **Swedish for Sweden**: Full localization when detected.
-- **No AI smell**: Real movie posters from TMDB, quality-gated content, no generated art.
+- **Zero UI at top**: Nothing may appear at the top of screen. Only OS status bar exists.
+- **Film dominates**: The poster IS the interface. ~80% of screen is the movie poster.
+- **Bottom-driven interaction**: All controls at bottom, thumb-reachable.
+- **Spotify-level calm**: Few choices, no explanation needed, content first.
+- **No AI smell**: Real TMDB posters, quality-gated content, no generated art.
+
+## Screen Structure
+
+### Top Area
+- Completely empty (only OS status bar)
+- No icons, buttons, navigation, or labels
+- This area is silent
+
+### Main Content (~80%)
+- Full-bleed official movie poster
+- Title + year only, subtle at bottom
+- No metadata, ratings, or debug overlays
+- Gesture-responsive (swipe left/right/up)
+
+### Streaming Providers (above actions)
+- Single horizontal row
+- Official brand icons: Netflix, Prime, Disney+, Max, Apple TV+, Viaplay
+- Tap opens exact movie in provider app (deep link)
+- Max 4 icons shown
+
+### Bottom Action Bar
+Three actions (left to right):
+1. Pass (red X)
+2. Save (yellow bookmark)
+3. Like (green heart)
+Icons only. Haptic feedback on press.
+
+### Secondary Navigation
+Below action bar, always visible:
+- Spelläge (game mode)
+- Couch Mode
+- Settings
 
 ## Data Quality Rules (NON-NEGOTIABLE)
 - All movies use official TMDB poster paths
@@ -32,8 +64,8 @@ Every movie shown can actually be watched in the country you live in. No US-only
 ### Quick Swipe (Default)
 - Swipe right to like, left to pass, up to save for later
 - Physics-based gestures with haptic feedback
-- Star rating badge on each card
-- Full movie metadata: year, runtime, genre
+- Bottom action buttons as alternative to swipes
+- Title + year only on cards
 - Country-accurate streaming availability
 
 ### Streaming Provider Integration
@@ -47,7 +79,7 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - Image prefetching for smooth scrolling
 - Memory + disk caching via expo-image
 - Placeholder blur hash during loading
-- Pure black background (#000000) - no gradients
+- Pure black background (#000000)
 
 ### Couch Mode
 - Create a session and share via:
@@ -61,13 +93,6 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - Pick a mood: Calm, Fun, Intense, Short
 - Filtered movie selection based on mood
 - Perfect for date nights or group decisions
-
-### Dev Debug Mode
-- Toggle with bug icon in header (dev builds only)
-- Shows feed bucket source, score, and reason
-- Queue length and history tracking
-- Fallback level indicator
-- Bucket distribution ratios
 
 ## Tech Stack
 - Expo SDK 53 with React Native 0.76.7
@@ -90,7 +115,7 @@ src/
 │   ├── spellage.tsx     # Game Mode mood picker
 │   └── session.tsx      # Active swiping session
 ├── components/
-│   ├── SwipeCard.tsx    # Main swipe card with gradients
+│   ├── MovieCard.tsx    # Main movie card with swipe gestures
 │   ├── ProviderButton.tsx # Streaming provider row
 │   ├── ProviderIcon.tsx # SVG provider icons
 │   └── InviteSheet.tsx  # Room sharing sheet

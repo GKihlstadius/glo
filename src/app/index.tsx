@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Bookmark, Bug } from 'lucide-react-native';
+import { X, Bookmark, Heart, Gamepad2, Sofa, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { SwipeCard } from '@/components/SwipeCard';
+import { MovieCard } from '@/components/MovieCard';
 import { ProviderRow } from '@/components/ProviderButton';
 import { FeedItem } from '@/lib/types';
 import { COLORS } from '@/lib/constants';
@@ -14,8 +14,7 @@ import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers } from '@/lib/movies';
 import { prefetchMovieImages } from '@/lib/image-cache';
 
-// Dev mode flag
-const DEV_MODE = __DEV__;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -33,7 +32,6 @@ export default function HomeScreen() {
   const [currentItem, setCurrentItem] = useState<FeedItem | null>(null);
   const [nextItem, setNextItem] = useState<FeedItem | null>(null);
   const [matched, setMatched] = useState<FeedItem | null>(null);
-  const [showDebug, setShowDebug] = useState(false);
 
   // Feed engine reference
   const feedEngineRef = useRef<FeedEngine | null>(null);
@@ -104,67 +102,44 @@ export default function HomeScreen() {
     prefetchMore();
   }, [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic, prefetchMore]);
 
-  // Get streaming offers for matched movie
-  const matchedOffers = useMemo(() => {
-    if (!matched) return [];
-    return getStreamingOffers(matched.movie.id, country.code);
-  }, [matched, country.code]);
+  // Action handlers for bottom bar
+  const handlePass = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('left');
+  }, [haptic, handleSwipe]);
 
-  // Get feed stats for debug
-  const feedStats = useMemo(() => {
-    if (!feedEngineRef.current) return null;
-    return feedEngineRef.current.getStats();
-  }, [currentItem]);
+  const handleSave = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('up');
+  }, [haptic, handleSwipe]);
+
+  const handleLike = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('right');
+  }, [haptic, handleSwipe]);
+
+  // Get current movie's streaming offers
+  const currentOffers = currentItem
+    ? getStreamingOffers(currentItem.movie.id, country.code).slice(0, 4)
+    : [];
+
+  // Get streaming offers for matched movie
+  const matchedOffers = matched
+    ? getStreamingOffers(matched.movie.id, country.code)
+    : [];
+
+  // Calculate card height - approximately 80% of usable screen
+  const usableHeight = Dimensions.get('window').height - insets.top - insets.bottom;
+  const bottomBarHeight = 140; // Action bar + secondary nav
+  const cardHeight = usableHeight - bottomBarHeight;
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
-      {/* Minimal header - just region flag and saved */}
-      <View
-        className="flex-row items-center justify-between px-4"
-        style={{ paddingTop: insets.top + 8, paddingBottom: 4 }}
-      >
-        <Pressable
-          onPress={() => router.push('/settings')}
-          hitSlop={12}
-        >
-          <Text style={{ fontSize: 18 }}>
-            {country.flag}
-          </Text>
-        </Pressable>
-        <View className="flex-row items-center" style={{ gap: 20 }}>
-          {DEV_MODE && (
-            <Pressable onPress={() => setShowDebug(!showDebug)} hitSlop={12}>
-              <Bug size={18} color={showDebug ? '#00FF00' : COLORS.textMuted} />
-            </Pressable>
-          )}
-          <Pressable onPress={() => router.push('/saved')} hitSlop={12}>
-            <Bookmark size={20} color={COLORS.textMuted} />
-          </Pressable>
-        </View>
-      </View>
+      {/* TOP AREA: Completely empty - only OS status bar */}
+      <View style={{ height: insets.top }} />
 
-      {/* Debug overlay */}
-      {showDebug && feedStats && (
-        <View style={styles.feedDebugOverlay}>
-          <Text style={styles.feedDebugText}>Q: {feedStats.queueLength} | H: {feedStats.historySize}</Text>
-          <Text style={styles.feedDebugText}>Fallback: L{feedStats.fallbackLevel}</Text>
-          <Text style={styles.feedDebugText}>
-            E{(feedStats.bucketRatios.exploit * 100).toFixed(0)}%
-            X{(feedStats.bucketRatios.explore * 100).toFixed(0)}%
-            W{(feedStats.bucketRatios.wildcard * 100).toFixed(0)}%
-          </Text>
-        </View>
-      )}
-
-      {/* Single card - full bleed, no stack visible */}
-      <View
-        className="flex-1"
-        style={{
-          marginTop: 4,
-          marginBottom: insets.bottom + 4,
-          marginHorizontal: 4,
-        }}
-      >
+      {/* MAIN CONTENT: Full-bleed movie poster */}
+      <View style={{ flex: 1, marginHorizontal: 0 }}>
         {!currentItem ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-base" style={{ color: COLORS.textMuted }}>
@@ -172,21 +147,86 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          <SwipeCard
+          <MovieCard
             key={currentItem.movie.id}
             movie={currentItem.movie}
             onSwipe={handleSwipe}
-            isTop={true}
             haptic={haptic}
-            countryCode={country.code}
-            showDebug={showDebug}
-            debugInfo={{
-              bucket: currentItem.bucket,
-              score: currentItem.score,
-              reason: currentItem.reason,
-            }}
           />
         )}
+      </View>
+
+      {/* STREAMING PROVIDERS: Single row above action bar */}
+      {currentOffers.length > 0 && (
+        <View style={styles.providerSection}>
+          <ProviderRow offers={currentOffers} size="medium" haptic={haptic} maxVisible={4} />
+        </View>
+      )}
+
+      {/* BOTTOM ACTION BAR: Pass / Save / Like */}
+      <View style={[styles.actionBar, { paddingBottom: 8 }]}>
+        {/* Pass */}
+        <Pressable
+          onPress={handlePass}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.passButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <X size={28} color="#fff" strokeWidth={2.5} />
+        </Pressable>
+
+        {/* Save */}
+        <Pressable
+          onPress={handleSave}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.saveButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <Bookmark size={26} color="#fff" fill="#fff" />
+        </Pressable>
+
+        {/* Like */}
+        <Pressable
+          onPress={handleLike}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.likeButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <Heart size={28} color="#fff" fill="#fff" />
+        </Pressable>
+      </View>
+
+      {/* SECONDARY NAVIGATION: Spelläge / Couch / Settings */}
+      <View style={[styles.secondaryNav, { paddingBottom: insets.bottom + 8 }]}>
+        <Pressable
+          onPress={() => router.push('/spellage')}
+          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+          hitSlop={12}
+        >
+          <Gamepad2 size={20} color={COLORS.textMuted} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/couch')}
+          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+          hitSlop={12}
+        >
+          <Sofa size={20} color={COLORS.textMuted} />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/settings')}
+          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+          hitSlop={12}
+        >
+          <Settings size={20} color={COLORS.textMuted} />
+        </Pressable>
       </View>
 
       {/* Match overlay - minimal, shows streaming providers */}
@@ -203,7 +243,7 @@ export default function HomeScreen() {
               {matched.movie.title}
             </Text>
             <Text className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
-              {matched.movie.year} · {matched.movie.runtime} min
+              {matched.movie.year}
             </Text>
 
             {/* Provider buttons - tap to open app */}
@@ -230,18 +270,45 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  feedDebugOverlay: {
-    position: 'absolute',
-    top: 100,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    padding: 8,
-    borderRadius: 6,
-    zIndex: 100,
+  providerSection: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
   },
-  feedDebugText: {
-    color: '#00FF00',
-    fontSize: 9,
-    fontFamily: 'monospace',
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 24,
+  },
+  actionButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonPressed: {
+    transform: [{ scale: 0.92 }],
+  },
+  passButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  },
+  saveButton: {
+    backgroundColor: 'rgba(234, 179, 8, 0.9)',
+  },
+  likeButton: {
+    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+  },
+  secondaryNav: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 12,
+    gap: 48,
+  },
+  navButton: {
+    padding: 8,
   },
 });

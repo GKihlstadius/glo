@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { X } from 'lucide-react-native';
+import { X, Bookmark, Heart } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { SwipeCard } from '@/components/SwipeCard';
+import { MovieCard } from '@/components/MovieCard';
 import { ProviderRow } from '@/components/ProviderButton';
 import { FeedItem } from '@/lib/types';
 import { COLORS } from '@/lib/constants';
@@ -62,7 +62,6 @@ export default function SessionScreen() {
       if (direction === 'right') {
         likeMovie(movie.id);
         feedEngineRef.current.recordSwipe(movie.id, 'like');
-        // In session mode, show match
         setMatched(currentItem);
       } else if (direction === 'left') {
         passMovie(movie.id);
@@ -86,6 +85,27 @@ export default function SessionScreen() {
     router.back();
   };
 
+  // Action handlers for bottom bar
+  const handlePass = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('left');
+  }, [haptic, handleSwipe]);
+
+  const handleSave = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('up');
+  }, [haptic, handleSwipe]);
+
+  const handleLike = useCallback(() => {
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handleSwipe('right');
+  }, [haptic, handleSwipe]);
+
+  // Get current movie's streaming offers
+  const currentOffers = currentItem
+    ? getStreamingOffers(currentItem.movie.id, session?.regionCode || country.code).slice(0, 4)
+    : [];
+
   // Get streaming offers for matched movie
   const matchedOffers = useMemo(() => {
     if (!matched) return [];
@@ -104,10 +124,10 @@ export default function SessionScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
-      {/* Header */}
+      {/* Minimal header - only exit button and session info */}
       <View
-        className="flex-row items-center justify-between px-4 pb-4"
-        style={{ paddingTop: insets.top + 8 }}
+        className="flex-row items-center justify-between px-4"
+        style={{ paddingTop: insets.top + 8, paddingBottom: 4 }}
       >
         <View className="flex-row items-center">
           {session?.code ? (
@@ -120,51 +140,82 @@ export default function SessionScreen() {
             </Text>
           ) : null}
         </View>
-        <Pressable onPress={handleExit} hitSlop={8}>
-          <X size={24} color={COLORS.textMuted} />
+        <Pressable onPress={handleExit} hitSlop={12}>
+          <X size={22} color={COLORS.textMuted} />
         </Pressable>
       </View>
 
-      {/* Card stack */}
-      <View
-        className="flex-1"
-        style={{
-          marginBottom: insets.bottom + 8,
-          marginHorizontal: 8,
-        }}
-      >
+      {/* Main content - movie poster */}
+      <View style={{ flex: 1, marginHorizontal: 0 }}>
         {!currentItem ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-base mb-4" style={{ color: COLORS.textMuted }}>
               {lang === 'sv' ? 'Inga fler filmer' : 'No more movies'}
             </Text>
-            <Pressable onPress={handleExit} className="px-6 py-3" style={{ backgroundColor: COLORS.bgCard }}>
+            <Pressable
+              onPress={handleExit}
+              className="px-6 py-3"
+              style={{ backgroundColor: COLORS.bgCard, borderRadius: 8 }}
+            >
               <Text style={{ color: COLORS.text }}>
                 {lang === 'sv' ? 'Avsluta' : 'Exit'}
               </Text>
             </Pressable>
           </View>
         ) : (
-          <View className="flex-1 relative">
-            {nextItem && (
-              <SwipeCard
-                movie={nextItem.movie}
-                onSwipe={() => {}}
-                isTop={false}
-                haptic={haptic}
-                countryCode={session?.regionCode || country.code}
-              />
-            )}
-            <SwipeCard
-              key={currentItem.movie.id}
-              movie={currentItem.movie}
-              onSwipe={handleSwipe}
-              isTop={true}
-              haptic={haptic}
-              countryCode={session?.regionCode || country.code}
-            />
-          </View>
+          <MovieCard
+            key={currentItem.movie.id}
+            movie={currentItem.movie}
+            onSwipe={handleSwipe}
+            haptic={haptic}
+          />
         )}
+      </View>
+
+      {/* Streaming providers - above action bar */}
+      {currentOffers.length > 0 && (
+        <View style={styles.providerSection}>
+          <ProviderRow offers={currentOffers} size="medium" haptic={haptic} maxVisible={4} />
+        </View>
+      )}
+
+      {/* Bottom action bar */}
+      <View style={[styles.actionBar, { paddingBottom: insets.bottom + 16 }]}>
+        {/* Pass */}
+        <Pressable
+          onPress={handlePass}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.passButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <X size={28} color="#fff" strokeWidth={2.5} />
+        </Pressable>
+
+        {/* Save */}
+        <Pressable
+          onPress={handleSave}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.saveButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <Bookmark size={26} color="#fff" fill="#fff" />
+        </Pressable>
+
+        {/* Like */}
+        <Pressable
+          onPress={handleLike}
+          style={({ pressed }) => [
+            styles.actionButton,
+            styles.likeButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+        >
+          <Heart size={28} color="#fff" fill="#fff" />
+        </Pressable>
       </View>
 
       {/* Match overlay */}
@@ -181,7 +232,7 @@ export default function SessionScreen() {
               {matched.movie.title}
             </Text>
             <Text className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
-              {matched.movie.year} · {matched.movie.runtime} min
+              {matched.movie.year}
             </Text>
 
             {/* Provider buttons */}
@@ -194,7 +245,7 @@ export default function SessionScreen() {
             <Pressable
               onPress={() => setMatched(null)}
               className="px-6 py-3"
-              style={{ backgroundColor: COLORS.bgCard }}
+              style={{ backgroundColor: COLORS.bgCard, borderRadius: 8 }}
             >
               <Text className="text-sm" style={{ color: COLORS.text }}>
                 {lang === 'sv' ? 'Fortsätt' : 'Continue'}
@@ -206,3 +257,38 @@ export default function SessionScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  providerSection: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 8,
+    gap: 24,
+  },
+  actionButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonPressed: {
+    transform: [{ scale: 0.92 }],
+  },
+  passButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  },
+  saveButton: {
+    backgroundColor: 'rgba(234, 179, 8, 0.9)',
+  },
+  likeButton: {
+    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+  },
+});
