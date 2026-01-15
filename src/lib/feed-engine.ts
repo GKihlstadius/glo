@@ -152,31 +152,31 @@ function scoreMovie(movie: Movie, profile: TasteProfile): number {
 
   // Genre affinity (up to 30 points)
   const genreScore =
-    movie.genres?.reduce((sum, g) => sum + (profile.genres[g] || 0), 0) || 0;
+    movie.genres?.reduce((sum, g) => sum + (profile.genres?.[g] ?? 0), 0) ?? 0;
   score += Math.max(-15, Math.min(30, genreScore * 20));
 
   // Mood affinity (up to 15 points)
   const moodScore =
-    movie.mood?.reduce((sum, m) => sum + (profile.moodWeights[m] || 0), 0) || 0;
+    movie.mood?.reduce((sum, m) => sum + (profile.moodWeights?.[m] ?? 0), 0) ?? 0;
   score += Math.max(-10, Math.min(15, moodScore * 15));
 
   // Era affinity (up to 10 points)
   if (movie.era) {
-    score += (profile.eraWeights[movie.era] || 0) * 10;
+    score += (profile.eraWeights?.[movie.era] ?? 0) * 10;
   }
 
   // Runtime proximity (up to 15 points, penalty for deviation)
-  const runtimeDiff = Math.abs(movie.runtime - profile.preferredRuntime);
+  const runtimeDiff = Math.abs(movie.runtime - (profile.preferredRuntime ?? 120));
   score += Math.max(0, 15 - runtimeDiff * 0.2);
 
   // Director affinity bonus
   const directorScore =
-    movie.directors?.reduce((sum, d) => sum + (profile.directors[d] || 0), 0) || 0;
+    movie.directors?.reduce((sum, d) => sum + (profile.directors?.[d] ?? 0), 0) ?? 0;
   score += directorScore * 10;
 
   // Cast affinity bonus
   const castScore =
-    movie.cast?.reduce((sum, a) => sum + (profile.cast[a] || 0), 0) || 0;
+    movie.cast?.reduce((sum, a) => sum + (profile.cast?.[a] ?? 0), 0) ?? 0;
   score += castScore * 5;
 
   return score;
