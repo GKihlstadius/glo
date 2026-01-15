@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Settings, Users, Bookmark, Gamepad2, Bug } from 'lucide-react-native';
+import { Bookmark, Bug } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SwipeCard } from '@/components/SwipeCard';
 import { ProviderRow } from '@/components/ProviderButton';
@@ -14,7 +14,7 @@ import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers } from '@/lib/movies';
 import { prefetchMovieImages } from '@/lib/image-cache';
 
-// Dev mode flag - set to true to show debug overlay
+// Dev mode flag
 const DEV_MODE = __DEV__;
 
 export default function HomeScreen() {
@@ -57,7 +57,7 @@ export default function HomeScreen() {
 
     // Prefetch upcoming images
     if (feedEngineRef.current) {
-      const upcoming = feedEngineRef.current.prefetch(10);
+      const upcoming = feedEngineRef.current.prefetch(15);
       prefetchMovieImages(upcoming);
     }
   }, [country.code]);
@@ -72,7 +72,7 @@ export default function HomeScreen() {
   // Prefetch more images when queue runs low
   const prefetchMore = useCallback(() => {
     if (feedEngineRef.current) {
-      const upcoming = feedEngineRef.current.prefetch(10);
+      const upcoming = feedEngineRef.current.prefetch(15);
       prefetchMovieImages(upcoming);
     }
   }, []);
@@ -114,42 +114,31 @@ export default function HomeScreen() {
   const feedStats = useMemo(() => {
     if (!feedEngineRef.current) return null;
     return feedEngineRef.current.getStats();
-  }, [currentItem]); // Re-compute when current item changes
+  }, [currentItem]);
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
-      {/* Minimal header - region indicator + icons */}
+      {/* Minimal header - just region flag and saved */}
       <View
         className="flex-row items-center justify-between px-4"
-        style={{ paddingTop: insets.top + 4 }}
+        style={{ paddingTop: insets.top + 8, paddingBottom: 4 }}
       >
         <Pressable
-          onPress={() => {
-            if (DEV_MODE) setShowDebug(!showDebug);
-          }}
-          hitSlop={8}
+          onPress={() => router.push('/settings')}
+          hitSlop={12}
         >
-          <Text className="text-sm" style={{ color: showDebug ? '#00FF00' : COLORS.textMuted }}>
+          <Text style={{ fontSize: 18 }}>
             {country.flag}
           </Text>
         </Pressable>
-        <View className="flex-row" style={{ columnGap: 16 }}>
+        <View className="flex-row items-center" style={{ gap: 20 }}>
           {DEV_MODE && (
-            <Pressable onPress={() => setShowDebug(!showDebug)} hitSlop={8}>
-              <Bug size={20} color={showDebug ? '#00FF00' : COLORS.textMuted} />
+            <Pressable onPress={() => setShowDebug(!showDebug)} hitSlop={12}>
+              <Bug size={18} color={showDebug ? '#00FF00' : COLORS.textMuted} />
             </Pressable>
           )}
-          <Pressable onPress={() => router.push('/spellage')} hitSlop={8}>
-            <Gamepad2 size={20} color={COLORS.textMuted} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/couch')} hitSlop={8}>
-            <Users size={20} color={COLORS.textMuted} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/saved')} hitSlop={8}>
+          <Pressable onPress={() => router.push('/saved')} hitSlop={12}>
             <Bookmark size={20} color={COLORS.textMuted} />
-          </Pressable>
-          <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
-            <Settings size={20} color={COLORS.textMuted} />
           </Pressable>
         </View>
       </View>
@@ -157,24 +146,23 @@ export default function HomeScreen() {
       {/* Debug overlay */}
       {showDebug && feedStats && (
         <View style={styles.feedDebugOverlay}>
-          <Text style={styles.feedDebugText}>Queue: {feedStats.queueLength}</Text>
-          <Text style={styles.feedDebugText}>History: {feedStats.historySize}</Text>
+          <Text style={styles.feedDebugText}>Q: {feedStats.queueLength} | H: {feedStats.historySize}</Text>
           <Text style={styles.feedDebugText}>Fallback: L{feedStats.fallbackLevel}</Text>
           <Text style={styles.feedDebugText}>
-            Ratios: E{(feedStats.bucketRatios.exploit * 100).toFixed(0)}% /
-            X{(feedStats.bucketRatios.explore * 100).toFixed(0)}% /
+            E{(feedStats.bucketRatios.exploit * 100).toFixed(0)}%
+            X{(feedStats.bucketRatios.explore * 100).toFixed(0)}%
             W{(feedStats.bucketRatios.wildcard * 100).toFixed(0)}%
           </Text>
         </View>
       )}
 
-      {/* Card stack - full screen, the movie IS the interface */}
+      {/* Single card - full bleed, no stack visible */}
       <View
         className="flex-1"
         style={{
-          marginTop: 8,
-          marginBottom: insets.bottom + 8,
-          marginHorizontal: 8,
+          marginTop: 4,
+          marginBottom: insets.bottom + 4,
+          marginHorizontal: 4,
         }}
       >
         {!currentItem ? (
@@ -184,31 +172,20 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          <View className="flex-1 relative">
-            {nextItem && (
-              <SwipeCard
-                movie={nextItem.movie}
-                onSwipe={() => {}}
-                isTop={false}
-                haptic={haptic}
-                countryCode={country.code}
-              />
-            )}
-            <SwipeCard
-              key={currentItem.movie.id}
-              movie={currentItem.movie}
-              onSwipe={handleSwipe}
-              isTop={true}
-              haptic={haptic}
-              countryCode={country.code}
-              showDebug={showDebug}
-              debugInfo={{
-                bucket: currentItem.bucket,
-                score: currentItem.score,
-                reason: currentItem.reason,
-              }}
-            />
-          </View>
+          <SwipeCard
+            key={currentItem.movie.id}
+            movie={currentItem.movie}
+            onSwipe={handleSwipe}
+            isTop={true}
+            haptic={haptic}
+            countryCode={country.code}
+            showDebug={showDebug}
+            debugInfo={{
+              bucket: currentItem.bucket,
+              score: currentItem.score,
+              reason: currentItem.reason,
+            }}
+          />
         )}
       </View>
 
@@ -259,12 +236,12 @@ const styles = StyleSheet.create({
     right: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
     padding: 8,
-    borderRadius: 8,
+    borderRadius: 6,
     zIndex: 100,
   },
   feedDebugText: {
     color: '#00FF00',
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'monospace',
   },
 });

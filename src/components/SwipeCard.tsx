@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -54,9 +54,9 @@ export function SwipeCard({
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
-  // Get streaming offers for this movie
+  // Get streaming offers for this movie - max 4 shown
   const offers = useMemo(() => {
-    return getStreamingOffers(movie.id, countryCode);
+    return getStreamingOffers(movie.id, countryCode).slice(0, 4);
   }, [movie.id, countryCode]);
 
   const triggerHaptic = () => {
@@ -82,28 +82,28 @@ export function SwipeCard({
     onEnd: (event) => {
       // Swipe up for save
       if (translateY.value < -SWIPE.translateThreshold && event.velocityY < 0) {
-        translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 250 });
+        translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 200 });
         runOnJS(handleSwipeComplete)('up');
         return;
       }
 
       // Swipe right for like
       if (translateX.value > SWIPE.translateThreshold || event.velocityX > SWIPE.velocityThreshold) {
-        translateX.value = withTiming(SCREEN_WIDTH * 1.5, { duration: 250 });
+        translateX.value = withTiming(SCREEN_WIDTH * 1.5, { duration: 200 });
         runOnJS(handleSwipeComplete)('right');
         return;
       }
 
       // Swipe left for pass
       if (translateX.value < -SWIPE.translateThreshold || event.velocityX < -SWIPE.velocityThreshold) {
-        translateX.value = withTiming(-SCREEN_WIDTH * 1.5, { duration: 250 });
+        translateX.value = withTiming(-SCREEN_WIDTH * 1.5, { duration: 200 });
         runOnJS(handleSwipeComplete)('left');
         return;
       }
 
-      // Snap back
-      translateX.value = withSpring(0, { damping: 20 });
-      translateY.value = withSpring(0, { damping: 20 });
+      // Snap back - immediate, physical feel
+      translateX.value = withSpring(0, { damping: 25, stiffness: 400 });
+      translateY.value = withSpring(0, { damping: 25, stiffness: 400 });
     },
   });
 
@@ -124,7 +124,7 @@ export function SwipeCard({
     };
   });
 
-  // Icons only appear while swiping - then disappear
+  // Swipe indicators - subtle, only during gesture
   const likeOpacity = useAnimatedStyle(() => ({
     opacity: interpolate(translateX.value, [0, SWIPE.translateThreshold], [0, 1], Extrapolation.CLAMP),
   }));
@@ -137,37 +137,16 @@ export function SwipeCard({
     opacity: interpolate(translateY.value, [-SWIPE.translateThreshold, 0], [1, 0], Extrapolation.CLAMP),
   }));
 
-  // Format runtime
-  const formatRuntime = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins}m`;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  // Card behind - static, no interaction
+  // No stacked cards - spec says "No stacked cards"
   if (!isTop) {
-    return (
-      <View
-        className="absolute w-full h-full"
-        style={{ transform: [{ scale: 0.95 }], opacity: 0.5 }}
-      >
-        <Image
-          source={{ uri: movie.posterUrl }}
-          style={styles.posterImage}
-          contentFit="cover"
-          placeholder={PLACEHOLDER_BLUR_HASH}
-          transition={IMAGE_TRANSITION}
-        />
-      </View>
-    );
+    return null;
   }
 
   return (
     <PanGestureHandler onGestureEvent={gestureHandler}>
-      <Animated.View className="absolute w-full h-full" style={cardStyle}>
-        {/* Full-bleed poster - edge to edge with rounded corners */}
+      <Animated.View className="flex-1" style={cardStyle}>
         <View style={styles.cardContainer}>
+          {/* Full-bleed poster - 70-80% of screen */}
           <Image
             source={{ uri: movie.posterUrl }}
             style={styles.posterImage}
@@ -177,38 +156,38 @@ export function SwipeCard({
             cachePolicy="memory-disk"
           />
 
-          {/* Gradient overlay for text readability */}
+          {/* Subtle gradient for text - no heavy overlays */}
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.9)']}
-            locations={[0.5, 0.7, 1]}
+            colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']}
+            locations={[0.55, 0.75, 1]}
             style={styles.gradient}
           />
 
-          {/* Like indicator */}
+          {/* Like indicator - green circle */}
           <Animated.View style={[styles.indicatorLeft, likeOpacity]}>
-            <View style={styles.indicatorCircle}>
-              <Heart size={32} color="#fff" fill="#fff" />
+            <View style={[styles.indicatorCircle, { backgroundColor: 'rgba(34, 197, 94, 0.9)' }]}>
+              <Heart size={28} color="#fff" fill="#fff" />
             </View>
           </Animated.View>
 
-          {/* Pass indicator */}
+          {/* Pass indicator - red circle */}
           <Animated.View style={[styles.indicatorRight, passOpacity]}>
             <View style={[styles.indicatorCircle, { backgroundColor: 'rgba(239, 68, 68, 0.9)' }]}>
-              <X size={32} color="#fff" strokeWidth={3} />
+              <X size={28} color="#fff" strokeWidth={3} />
             </View>
           </Animated.View>
 
-          {/* Save indicator */}
+          {/* Save indicator - yellow circle */}
           <Animated.View style={[styles.indicatorTop, saveOpacity]}>
             <View style={[styles.indicatorCircle, { backgroundColor: 'rgba(234, 179, 8, 0.9)' }]}>
-              <Bookmark size={32} color="#fff" fill="#fff" />
+              <Bookmark size={28} color="#fff" fill="#fff" />
             </View>
           </Animated.View>
 
-          {/* Rating badge - top right */}
+          {/* Rating badge - top right, small */}
           {movie.ratingAvg > 0 && (
             <View style={styles.ratingBadge}>
-              <Star size={12} color="#FCD34D" fill="#FCD34D" />
+              <Star size={11} color="#FCD34D" fill="#FCD34D" />
               <Text style={styles.ratingText}>{movie.ratingAvg.toFixed(1)}</Text>
             </View>
           )}
@@ -216,40 +195,25 @@ export function SwipeCard({
           {/* Debug info - dev only */}
           {showDebug && debugInfo && (
             <View style={styles.debugOverlay}>
-              <Text style={styles.debugText}>Bucket: {debugInfo.bucket}</Text>
-              <Text style={styles.debugText}>Score: {debugInfo.score?.toFixed(1)}</Text>
-              <Text style={styles.debugText}>Why: {debugInfo.reason}</Text>
+              <Text style={styles.debugText}>{debugInfo.bucket} | {debugInfo.score?.toFixed(0)}</Text>
+              <Text style={styles.debugText}>{debugInfo.reason}</Text>
             </View>
           )}
 
-          {/* Title + metadata + providers at bottom */}
+          {/* Bottom info: Title + Year only (spec: "Title + year only") */}
           <View style={styles.infoContainer}>
-            <View style={styles.titleRow}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.title} numberOfLines={2}>
-                  {movie.title}
-                </Text>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>{movie.year}</Text>
-                  <Text style={styles.metaDot}>·</Text>
-                  <Text style={styles.metaText}>{formatRuntime(movie.runtime)}</Text>
-                  {movie.genres?.[0] && (
-                    <>
-                      <Text style={styles.metaDot}>·</Text>
-                      <Text style={styles.metaText} numberOfLines={1}>
-                        {movie.genres[0].charAt(0).toUpperCase() + movie.genres[0].slice(1)}
-                      </Text>
-                    </>
-                  )}
-                </View>
+            {/* Title and year */}
+            <Text style={styles.title} numberOfLines={2}>
+              {movie.title}
+            </Text>
+            <Text style={styles.yearText}>{movie.year}</Text>
+
+            {/* Provider icons - single row near bottom, max 4 */}
+            {offers.length > 0 && (
+              <View style={styles.providersContainer}>
+                <ProviderRow offers={offers} size="small" haptic={haptic} maxVisible={4} />
               </View>
-              {/* Provider icons - tappable to open streaming app */}
-              {offers.length > 0 && (
-                <View style={styles.providersContainer}>
-                  <ProviderRow offers={offers} size="small" haptic={haptic} maxVisible={3} />
-                </View>
-              )}
-            </View>
+            )}
           </View>
         </View>
       </Animated.View>
@@ -260,78 +224,72 @@ export function SwipeCard({
 const styles = StyleSheet.create({
   cardContainer: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: COLORS.bgCard,
   },
   posterImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,
+    borderRadius: 12,
   },
   gradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '40%',
+    height: '35%',
   },
   indicatorLeft: {
     position: 'absolute',
-    top: 24,
-    left: 24,
+    top: 20,
+    left: 20,
   },
   indicatorRight: {
     position: 'absolute',
-    top: 24,
-    right: 24,
+    top: 20,
+    right: 20,
   },
   indicatorTop: {
     position: 'absolute',
-    top: 24,
+    top: 20,
     alignSelf: 'center',
   },
   indicatorCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
   },
   ratingBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 3,
   },
   ratingText: {
     color: '#FCD34D',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   debugOverlay: {
     position: 'absolute',
     top: 60,
-    left: 16,
+    left: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 8,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 4,
   },
   debugText: {
     color: '#00FF00',
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'monospace',
   },
   infoContainer: {
@@ -340,40 +298,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  titleContainer: {
-    flex: 1,
-    marginRight: 12,
+    paddingBottom: 20,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '600',
     marginBottom: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  metaText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-  },
-  metaDot: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 14,
-    marginHorizontal: 6,
+  yearText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 15,
+    marginBottom: 12,
   },
   providersContainer: {
-    flexShrink: 0,
+    marginTop: 4,
   },
 });
