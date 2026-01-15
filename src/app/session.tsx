@@ -1,15 +1,17 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, Pressable, Dimensions } from 'react-native';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { View, Text, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SwipeCard } from '@/components/SwipeCard';
-import { Movie } from '@/lib/types';
-import { COLORS, STREAMING_SERVICES } from '@/lib/constants';
+import { ProviderRow } from '@/components/ProviderButton';
+import { FeedItem } from '@/lib/types';
+import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
-import { getUnseenMovies, filterByMood, getMovie } from '@/lib/movies';
+import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
+import { getStreamingOffers } from '@/lib/movies';
 
 export default function SessionScreen() {
   const insets = useSafeAreaInsets();
@@ -19,49 +21,64 @@ export default function SessionScreen() {
   const setSession = useStore((s) => s.setSession);
   const likedMovies = useStore((s) => s.likedMovies);
   const passedMovies = useStore((s) => s.passedMovies);
+  const savedMovies = useStore((s) => s.savedMovies);
+  const tasteProfile = useStore((s) => s.tasteProfile);
   const likeMovie = useStore((s) => s.likeMovie);
   const passMovie = useStore((s) => s.passMovie);
   const saveMovie = useStore((s) => s.saveMovie);
   const lang = country.language;
 
-  const [movies, setMovies] = useState<Movie[]>([]);
-  const [index, setIndex] = useState(0);
-  const [matched, setMatched] = useState<Movie | null>(null);
+  const [currentItem, setCurrentItem] = useState<FeedItem | null>(null);
+  const [nextItem, setNextItem] = useState<FeedItem | null>(null);
+  const [matched, setMatched] = useState<FeedItem | null>(null);
 
-  // Load movies filtered by mood if applicable
+  // Feed engine reference
+  const feedEngineRef = useRef<FeedEngine | null>(null);
+
+  // Initialize feed engine with mood filter
   useEffect(() => {
-    let unseen = getUnseenMovies(country.code, likedMovies, passedMovies);
+    feedEngineRef.current = createFeedEngine(
+      session?.regionCode || country.code,
+      tasteProfile,
+      likedMovies,
+      passedMovies,
+      savedMovies,
+      session?.mood || null
+    );
 
-    if (session?.mood) {
-      unseen = filterByMood(unseen, session.mood);
-    }
-
-    setMovies(unseen);
-    setIndex(0);
-  }, [country.code, session?.mood, likedMovies.length, passedMovies.length]);
+    // Load initial items
+    const first = feedEngineRef.current.getNext();
+    const second = feedEngineRef.current.getNext();
+    setCurrentItem(first);
+    setNextItem(second);
+  }, [session?.regionCode, session?.mood, country.code]);
 
   const handleSwipe = useCallback(
     (direction: 'left' | 'right' | 'up') => {
-      const movie = movies[index];
-      if (!movie) return;
+      if (!currentItem || !feedEngineRef.current) return;
+
+      const movie = currentItem.movie;
 
       if (direction === 'right') {
         likeMovie(movie.id);
-        // In session mode, check for match
-        if (session) {
-          // Simulate match (in real app this would sync with other participants)
-          setMatched(movie);
-        }
+        feedEngineRef.current.recordSwipe(movie.id, 'like');
+        // In session mode, show match
+        setMatched(currentItem);
       } else if (direction === 'left') {
         passMovie(movie.id);
+        feedEngineRef.current.recordSwipe(movie.id, 'pass');
       } else if (direction === 'up') {
         saveMovie(movie.id);
+        feedEngineRef.current.recordSwipe(movie.id, 'save');
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      setIndex((i) => i + 1);
+      // Advance queue
+      setCurrentItem(nextItem);
+      const newNext = feedEngineRef.current.getNext();
+      setNextItem(newNext);
     },
-    [movies, index, likeMovie, passMovie, saveMovie, haptic, session]
+    [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic]
   );
 
   const handleExit = () => {
@@ -69,11 +86,21 @@ export default function SessionScreen() {
     router.back();
   };
 
-  const current = movies[index];
-  const next = movies[index + 1];
+  // Get streaming offers for matched movie
+  const matchedOffers = useMemo(() => {
+    if (!matched) return [];
+    return getStreamingOffers(matched.movie.id, session?.regionCode || country.code);
+  }, [matched, session?.regionCode, country.code]);
 
-  const getServiceName = (id: string) =>
-    STREAMING_SERVICES.find((s) => s.id === id)?.name || id;
+  const getMoodLabel = (mood: string) => {
+    switch (mood) {
+      case 'calm': return lang === 'sv' ? 'Lugn' : 'Calm';
+      case 'fun': return lang === 'sv' ? 'Rolig' : 'Fun';
+      case 'intense': return lang === 'sv' ? 'Intensiv' : 'Intense';
+      case 'short': return lang === 'sv' ? 'Kort' : 'Short';
+      default: return mood;
+    }
+  };
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
@@ -89,21 +116,7 @@ export default function SessionScreen() {
             </Text>
           ) : session?.mood ? (
             <Text className="text-sm" style={{ color: COLORS.textMuted }}>
-              {session.mood === 'calm'
-                ? lang === 'sv'
-                  ? 'Lugn'
-                  : 'Calm'
-                : session.mood === 'fun'
-                ? lang === 'sv'
-                  ? 'Rolig'
-                  : 'Fun'
-                : session.mood === 'intense'
-                ? lang === 'sv'
-                  ? 'Intensiv'
-                  : 'Intense'
-                : lang === 'sv'
-                ? 'Kort'
-                : 'Short'}
+              {getMoodLabel(session.mood)}
             </Text>
           ) : null}
         </View>
@@ -120,7 +133,7 @@ export default function SessionScreen() {
           marginHorizontal: 8,
         }}
       >
-        {!current ? (
+        {!currentItem ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-base mb-4" style={{ color: COLORS.textMuted }}>
               {lang === 'sv' ? 'Inga fler filmer' : 'No more movies'}
@@ -133,8 +146,23 @@ export default function SessionScreen() {
           </View>
         ) : (
           <View className="flex-1 relative">
-            {next && <SwipeCard movie={next} onSwipe={() => {}} isTop={false} haptic={haptic} />}
-            <SwipeCard key={current.id} movie={current} onSwipe={handleSwipe} isTop={true} haptic={haptic} />
+            {nextItem && (
+              <SwipeCard
+                movie={nextItem.movie}
+                onSwipe={() => {}}
+                isTop={false}
+                haptic={haptic}
+                countryCode={session?.regionCode || country.code}
+              />
+            )}
+            <SwipeCard
+              key={currentItem.movie.id}
+              movie={currentItem.movie}
+              onSwipe={handleSwipe}
+              isTop={true}
+              haptic={haptic}
+              countryCode={session?.regionCode || country.code}
+            />
           </View>
         )}
       </View>
@@ -150,11 +178,19 @@ export default function SessionScreen() {
           <Pressable className="absolute inset-0" onPress={() => setMatched(null)} />
           <View className="items-center px-8">
             <Text className="text-2xl font-medium mb-2" style={{ color: COLORS.text }}>
-              {matched.title}
+              {matched.movie.title}
             </Text>
-            <Text className="text-sm mb-8" style={{ color: COLORS.textMuted }}>
-              {matched.availability.map((a) => getServiceName(a.serviceId)).join(' · ')}
+            <Text className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
+              {matched.movie.year} · {matched.movie.runtime} min
             </Text>
+
+            {/* Provider buttons */}
+            {matchedOffers.length > 0 && (
+              <View className="mb-8">
+                <ProviderRow offers={matchedOffers} size="medium" haptic={haptic} />
+              </View>
+            )}
+
             <Pressable
               onPress={() => setMatched(null)}
               className="px-6 py-3"

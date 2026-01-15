@@ -27,6 +27,7 @@ export default function SpellageScreen() {
   const handleMood = (mood: Mood) => {
     if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    const now = Date.now();
     // Create session with mood filter
     setSession({
       id: Math.random().toString(36).slice(2),
@@ -35,6 +36,10 @@ export default function SpellageScreen() {
       swipes: {},
       status: 'active',
       mood,
+      regionCode: country.code,
+      mode: 'spellage',
+      createdAt: now,
+      expiresAt: now + 2 * 60 * 60 * 1000, // 2 hours
     });
 
     router.push('/session');

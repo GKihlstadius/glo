@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, TextInput, Share } from 'react-native';
+import { View, Text, Pressable, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Copy, Users } from 'lucide-react-native';
+import { ArrowLeft, Share2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
-
-// Generate session code
-const genCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-};
+import { createRoomInvite, RoomInvite } from '@/lib/room';
+import { InviteSheet } from '@/components/InviteSheet';
 
 export default function CouchScreen() {
   const insets = useSafeAreaInsets();
@@ -22,39 +18,48 @@ export default function CouchScreen() {
   const lang = country.language;
 
   const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose');
-  const [code, setCode] = useState('');
+  const [invite, setInvite] = useState<RoomInvite | null>(null);
   const [joinCode, setJoinCode] = useState('');
+  const [showInviteSheet, setShowInviteSheet] = useState(false);
 
   const handleCreate = () => {
-    const newCode = genCode();
-    setCode(newCode);
+    const newInvite = createRoomInvite('couch');
+    setInvite(newInvite);
     setMode('create');
     if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleShare = async () => {
-    await Share.share({ message: code });
-  };
-
   const handleStart = () => {
+    if (!invite) return;
+
+    const now = Date.now();
     setSession({
-      id: Math.random().toString(36).slice(2),
-      code,
+      id: invite.roomId,
+      code: invite.code,
       participants: [deviceId],
       swipes: {},
       status: 'active',
+      regionCode: country.code,
+      mode: 'couch',
+      createdAt: now,
+      expiresAt: invite.expiresAt,
     });
     router.push('/session');
   };
 
   const handleJoin = () => {
     if (joinCode.length !== 6) return;
+    const now = Date.now();
     setSession({
       id: Math.random().toString(36).slice(2),
       code: joinCode.toUpperCase(),
       participants: [deviceId],
       swipes: {},
       status: 'active',
+      regionCode: country.code,
+      mode: 'couch',
+      createdAt: now,
+      expiresAt: now + 2 * 60 * 60 * 1000,
     });
     if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push('/session');
@@ -104,21 +109,35 @@ export default function CouchScreen() {
           </>
         )}
 
-        {mode === 'create' && (
+        {mode === 'create' && invite && (
           <>
             <Text className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
-              {lang === 'sv' ? 'Dela koden' : 'Share the code'}
+              {lang === 'sv' ? 'Bjud in' : 'Invite'}
             </Text>
 
-            <Pressable onPress={handleShare} className="py-6 mb-8" style={{ backgroundColor: COLORS.bgCard }}>
+            {/* Room code display */}
+            <View className="py-6 mb-4" style={{ backgroundColor: COLORS.bgCard }}>
               <Text
                 className="text-3xl font-medium text-center tracking-widest"
                 style={{ color: COLORS.text, letterSpacing: 8 }}
               >
-                {code}
+                {invite.code}
+              </Text>
+            </View>
+
+            {/* Invite button */}
+            <Pressable
+              onPress={() => setShowInviteSheet(true)}
+              className="flex-row items-center justify-center py-3 mb-8"
+              style={{ backgroundColor: COLORS.bgCard }}
+            >
+              <Share2 size={18} color={COLORS.textMuted} />
+              <Text className="ml-2" style={{ color: COLORS.textMuted }}>
+                {lang === 'sv' ? 'Dela' : 'Share'}
               </Text>
             </Pressable>
 
+            {/* Start button */}
             <Pressable
               onPress={handleStart}
               className="py-4"
@@ -128,6 +147,15 @@ export default function CouchScreen() {
                 {lang === 'sv' ? 'Börja' : 'Start'}
               </Text>
             </Pressable>
+
+            {/* Invite sheet */}
+            <InviteSheet
+              visible={showInviteSheet}
+              invite={invite}
+              language={lang}
+              onClose={() => setShowInviteSheet(false)}
+              haptic={haptic}
+            />
           </>
         )}
 

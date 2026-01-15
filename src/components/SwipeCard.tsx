@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -16,6 +16,8 @@ import * as Haptics from 'expo-haptics';
 import { Heart, X, Bookmark } from 'lucide-react-native';
 import { Movie } from '@/lib/types';
 import { SWIPE } from '@/lib/constants';
+import { getStreamingOffers } from '@/lib/movies';
+import { ProviderRow } from './ProviderButton';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -24,6 +26,7 @@ interface SwipeCardProps {
   onSwipe: (direction: 'left' | 'right' | 'up') => void;
   isTop: boolean;
   haptic?: boolean;
+  countryCode?: string;
 }
 
 type GestureContext = {
@@ -31,9 +34,14 @@ type GestureContext = {
   startY: number;
 };
 
-export function SwipeCard({ movie, onSwipe, isTop, haptic = true }: SwipeCardProps) {
+export function SwipeCard({ movie, onSwipe, isTop, haptic = true, countryCode = 'US' }: SwipeCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+
+  // Get streaming offers for this movie
+  const offers = useMemo(() => {
+    return getStreamingOffers(movie.id, countryCode);
+  }, [movie.id, countryCode]);
 
   const triggerHaptic = () => {
     if (haptic) {
@@ -163,17 +171,25 @@ export function SwipeCard({ movie, onSwipe, isTop, haptic = true }: SwipeCardPro
           <Bookmark size={40} color="#fff" fill="#fff" />
         </Animated.View>
 
-        {/* Title + year at bottom - minimal, dark scrim */}
+        {/* Title + year + providers at bottom - minimal, dark scrim */}
         <View
           className="absolute bottom-0 left-0 right-0 px-4 py-3"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
         >
-          <Animated.Text className="text-white text-lg font-medium" numberOfLines={1}>
-            {movie.title}
-          </Animated.Text>
-          <Animated.Text className="text-white/50 text-sm">
-            {movie.year}
-          </Animated.Text>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 mr-3">
+              <Animated.Text className="text-white text-lg font-medium" numberOfLines={1}>
+                {movie.title}
+              </Animated.Text>
+              <Animated.Text className="text-white/50 text-sm">
+                {movie.year}
+              </Animated.Text>
+            </View>
+            {/* Provider icons - tappable to open streaming app */}
+            {offers.length > 0 && (
+              <ProviderRow offers={offers} size="small" haptic={haptic} maxVisible={3} />
+            )}
+          </View>
         </View>
       </Animated.View>
     </PanGestureHandler>
