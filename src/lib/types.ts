@@ -1,5 +1,5 @@
-// Glo - Pick together
-// A quiet tool for choosing movies together
+// Glo - Premium Movie Discovery
+// Production-ready type definitions
 
 export interface Country {
   code: string;
@@ -8,60 +8,106 @@ export interface Country {
   language: 'sv' | 'en';
 }
 
-export interface StreamingService {
+// Streaming provider with real branding
+export interface StreamingProvider {
   id: string;
   name: string;
+  primaryColor: string;
 }
 
-// Enhanced availability with deep links
+// Streaming offer with deep linking
 export interface StreamingOffer {
-  serviceId: string;
+  providerId: string;
   type: 'stream' | 'rent' | 'buy';
-  deepLink?: string; // Universal link (preferred)
-  webUrl?: string; // Web fallback
+  price?: number;
+  currency?: string;
+  deepLink?: string;
+  webUrl: string;
+  quality?: 'sd' | 'hd' | '4k';
 }
 
-export interface MovieAvailability {
-  serviceId: string;
-  type: 'stream' | 'rent' | 'buy';
-}
-
-// Extended movie with metadata for feed algorithm
+// Complete movie data contract (TMDB-style)
 export interface Movie {
   id: string;
+  tmdbId: number;
+  imdbId?: string;
+
+  // Core metadata
   title: string;
+  originalTitle?: string;
   year: number;
+  releaseDate: string;
   runtime: number;
-  posterUrl: string;
-  availability: MovieAvailability[];
-  // Feed algorithm metadata
-  genres?: string[];
-  mood?: ('calm' | 'fun' | 'intense')[];
-  era?: 'classic' | 'modern' | 'recent';
-  popularity?: number; // 0-100
+
+  // Classification
+  genres: string[];
+  keywords?: string[];
+  mood: ('calm' | 'fun' | 'intense')[];
+  era: 'classic' | 'modern' | 'recent';
+
+  // Ratings
+  ratingAvg: number; // 0-10
+  ratingCount: number;
+  popularityScore: number;
+
+  // Images (TMDB paths)
+  posterPath: string | null;
+  backdropPath: string | null;
+
+  // Credits (for diversity)
+  directors: string[];
+  cast: string[];
+
+  // Overview
+  overview?: string;
 }
 
-// Taste profile for feed personalization
+// Movie with regional availability
+export interface MovieWithAvailability extends Movie {
+  availability: StreamingOffer[];
+}
+
+// Taste profile for personalization
 export interface TasteProfile {
-  // Genre affinities (-1 to 1, decays over time)
   genres: Record<string, number>;
-  // Runtime preference (average of liked)
+  directors: Record<string, number>;
+  cast: Record<string, number>;
   preferredRuntime: number;
-  // Era preference
+  runtimeVariance: number;
   eraWeights: Record<string, number>;
-  // Mood affinities
   moodWeights: Record<string, number>;
-  // Interaction counts for confidence
   likeCount: number;
   passCount: number;
   saveCount: number;
-  // Pass streak for explore trigger
   consecutivePasses: number;
-  // Last update timestamp
+  recentGenres: string[];
+  recentDirectors: string[];
   lastUpdated: number;
 }
 
-// Room/Session with secure tokens
+// Candidate bucket types
+export type CandidateBucket =
+  | 'trending'
+  | 'top_rated'
+  | 'popular'
+  | 'new_noteworthy'
+  | 'hidden_gems'
+  | 'personalized';
+
+// Feed item with debug info
+export interface FeedItem {
+  movie: MovieWithAvailability;
+  bucket: CandidateBucket;
+  score: number;
+  reason: string;
+  diversity: {
+    genreDistance: number;
+    directorDistance: number;
+    runtimeDistance: number;
+  };
+}
+
+// Session for couch/spellage mode
 export interface Session {
   id: string;
   code: string;
@@ -70,34 +116,23 @@ export interface Session {
   status: 'waiting' | 'active' | 'matched';
   matchedMovieId?: string;
   mood?: Mood;
-  // Room metadata
   regionCode: string;
   mode: 'couch' | 'spellage';
   createdAt: number;
   expiresAt: number;
 }
 
-// Room invite token (for URL sharing)
+export type Mood = 'calm' | 'fun' | 'intense' | 'short';
+
+// Room invite
 export interface RoomInvite {
   roomId: string;
+  code: string;
   token: string;
+  joinUrl: string;
   expiresAt: number;
 }
 
-export type Mood = 'calm' | 'fun' | 'intense' | 'short';
-
-// Feed engine types
-export type FeedBucket = 'exploit' | 'explore' | 'wildcard';
-
-export interface FeedItem {
-  movie: Movie;
-  bucket: FeedBucket;
-  score: number;
-  reason?: string; // Debug info
-}
-
-export interface FeedState {
-  queue: FeedItem[];
-  historyWindow: Set<string>; // Recently shown IDs
-  fallbackLevel: number; // 0 = normal, higher = more desperate
-}
+// Image sizes for CDN
+export type ImageSize = 'w185' | 'w342' | 'w500' | 'w780' | 'original';
+export type BackdropSize = 'w300' | 'w780' | 'w1280' | 'original';

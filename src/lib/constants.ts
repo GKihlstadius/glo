@@ -1,4 +1,4 @@
-import { Country, StreamingService, Mood } from './types';
+import { Country, StreamingProvider, Mood } from './types';
 
 // Near-black, cinematic
 export const COLORS = {
@@ -9,16 +9,20 @@ export const COLORS = {
   accent: '#FFFFFF',
 };
 
-// Streaming services - just id and name, no decoration
-export const STREAMING_SERVICES: StreamingService[] = [
-  { id: 'netflix', name: 'Netflix' },
-  { id: 'prime', name: 'Prime' },
-  { id: 'disney', name: 'Disney+' },
-  { id: 'hbo', name: 'Max' },
-  { id: 'apple', name: 'Apple TV+' },
-  { id: 'viaplay', name: 'Viaplay' },
-  { id: 'svtplay', name: 'SVT Play' },
-  { id: 'hulu', name: 'Hulu' },
+// Streaming providers with branding
+export const STREAMING_PROVIDERS: StreamingProvider[] = [
+  { id: 'netflix', name: 'Netflix', primaryColor: '#E50914' },
+  { id: 'prime', name: 'Prime Video', primaryColor: '#00A8E1' },
+  { id: 'disney', name: 'Disney+', primaryColor: '#113CCF' },
+  { id: 'hbo', name: 'Max', primaryColor: '#002BE7' },
+  { id: 'apple', name: 'Apple TV+', primaryColor: '#000000' },
+  { id: 'viaplay', name: 'Viaplay', primaryColor: '#FF0000' },
+  { id: 'svtplay', name: 'SVT Play', primaryColor: '#1B5E20' },
+  { id: 'hulu', name: 'Hulu', primaryColor: '#1CE783' },
+  { id: 'paramount', name: 'Paramount+', primaryColor: '#0064FF' },
+  { id: 'peacock', name: 'Peacock', primaryColor: '#000000' },
+  { id: 'mubi', name: 'MUBI', primaryColor: '#000000' },
+  { id: 'criterion', name: 'Criterion', primaryColor: '#000000' },
 ];
 
 // Countries with language
@@ -36,7 +40,7 @@ export const COUNTRIES: Country[] = [
   { code: 'CA', name: 'Canada', flag: '🇨🇦', language: 'en' },
 ];
 
-// Moods - icon only, one word
+// Moods
 export const MOODS: Record<Mood, { icon: string; label: { en: string; sv: string } }> = {
   calm: { icon: '🌙', label: { en: 'Calm', sv: 'Lugn' } },
   fun: { icon: '😊', label: { en: 'Fun', sv: 'Kul' } },
@@ -50,3 +54,22 @@ export const SWIPE = {
   translateThreshold: 120,
   rotation: 12,
 };
+
+// TMDB Image CDN
+export const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
+
+// Image quality helpers
+export function getPosterUrl(path: string | null, size: 'w185' | 'w342' | 'w500' | 'w780' = 'w500'): string | null {
+  if (!path) return null;
+  return `${TMDB_IMAGE_BASE}/${size}${path}`;
+}
+
+export function getBackdropUrl(path: string | null, size: 'w300' | 'w780' | 'w1280' = 'w780'): string | null {
+  if (!path) return null;
+  return `${TMDB_IMAGE_BASE}/${size}${path}`;
+}
+
+// Get provider by ID
+export function getProvider(id: string): StreamingProvider | undefined {
+  return STREAMING_PROVIDERS.find((p) => p.id === id);
+}
