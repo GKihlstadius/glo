@@ -1,138 +1,114 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Country, UserPreferences, Session, MoodCard } from './types';
+import { Country, Session } from './types';
+import { COUNTRIES } from './constants';
+import { Platform, NativeModules } from 'react-native';
 
 interface GloStore {
-  // User preferences
-  country: Country | null;
-  hasCompletedOnboarding: boolean;
+  // Region - auto-detected
+  country: Country;
+
+  // Swipe history
   savedMovies: string[];
   likedMovies: string[];
   passedMovies: string[];
-  connectionPoints: number;
-  preferredGenres: string[];
-  hapticEnabled: boolean;
-  hasPurchased: boolean;
 
-  // Current session state (not persisted)
+  // Settings
+  hapticEnabled: boolean;
+
+  // Session
   currentSession: Session | null;
   deviceId: string;
 
-  // Actions - User preferences
+  // Actions
   setCountry: (country: Country) => void;
-  completeOnboarding: () => void;
-  saveMovie: (movieId: string) => void;
-  unsaveMovie: (movieId: string) => void;
-  likeMovie: (movieId: string) => void;
-  passMovie: (movieId: string) => void;
-  setPreferredGenres: (genres: string[]) => void;
+  saveMovie: (id: string) => void;
+  unsaveMovie: (id: string) => void;
+  likeMovie: (id: string) => void;
+  passMovie: (id: string) => void;
   toggleHaptic: () => void;
-  setPurchased: (purchased: boolean) => void;
-  incrementConnectionPoints: () => void;
-
-  // Actions - Session
-  setCurrentSession: (session: Session | null) => void;
-  setDeviceId: (id: string) => void;
-
-  // Reset
-  resetPreferences: () => void;
+  setSession: (session: Session | null) => void;
+  reset: () => void;
 }
 
-const initialState = {
-  country: null,
-  hasCompletedOnboarding: false,
-  savedMovies: [],
-  likedMovies: [],
-  passedMovies: [],
-  connectionPoints: 0,
-  preferredGenres: [],
-  hapticEnabled: true,
-  hasPurchased: false,
-  currentSession: null,
-  deviceId: '',
-};
+// Auto-detect country from device locale
+function detectCountry(): Country {
+  let regionCode = 'US';
 
-export const useGloStore = create<GloStore>()(
+  try {
+    if (Platform.OS === 'ios') {
+      regionCode = NativeModules.SettingsManager?.settings?.AppleLocale?.split('_')[1] ||
+                   NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]?.split('-')[1] ||
+                   'US';
+    } else if (Platform.OS === 'android') {
+      regionCode = NativeModules.I18nManager?.localeIdentifier?.split('_')[1] || 'US';
+    }
+  } catch {
+    regionCode = 'US';
+  }
+
+  return COUNTRIES.find((c) => c.code === regionCode) || COUNTRIES.find((c) => c.code === 'US')!;
+}
+
+const defaultCountry = detectCountry();
+
+export const useStore = create<GloStore>()(
   persist(
-    (set, get) => ({
-      ...initialState,
+    (set) => ({
+      country: defaultCountry,
+      savedMovies: [],
+      likedMovies: [],
+      passedMovies: [],
+      hapticEnabled: true,
+      currentSession: null,
+      deviceId: Math.random().toString(36).slice(2),
 
       setCountry: (country) => set({ country }),
 
-      completeOnboarding: () => set({ hasCompletedOnboarding: true }),
-
-      saveMovie: (movieId) =>
-        set((state) => ({
-          savedMovies: state.savedMovies.includes(movieId)
-            ? state.savedMovies
-            : [...state.savedMovies, movieId],
+      saveMovie: (id) =>
+        set((s) => ({
+          savedMovies: s.savedMovies.includes(id) ? s.savedMovies : [...s.savedMovies, id],
         })),
 
-      unsaveMovie: (movieId) =>
-        set((state) => ({
-          savedMovies: state.savedMovies.filter((id) => id !== movieId),
+      unsaveMovie: (id) =>
+        set((s) => ({
+          savedMovies: s.savedMovies.filter((x) => x !== id),
         })),
 
-      likeMovie: (movieId) =>
-        set((state) => ({
-          likedMovies: state.likedMovies.includes(movieId)
-            ? state.likedMovies
-            : [...state.likedMovies, movieId],
+      likeMovie: (id) =>
+        set((s) => ({
+          likedMovies: s.likedMovies.includes(id) ? s.likedMovies : [...s.likedMovies, id],
         })),
 
-      passMovie: (movieId) =>
-        set((state) => ({
-          passedMovies: state.passedMovies.includes(movieId)
-            ? state.passedMovies
-            : [...state.passedMovies, movieId],
+      passMovie: (id) =>
+        set((s) => ({
+          passedMovies: s.passedMovies.includes(id) ? s.passedMovies : [...s.passedMovies, id],
         })),
 
-      setPreferredGenres: (genres) => set({ preferredGenres: genres }),
+      toggleHaptic: () => set((s) => ({ hapticEnabled: !s.hapticEnabled })),
 
-      toggleHaptic: () => set((state) => ({ hapticEnabled: !state.hapticEnabled })),
+      setSession: (session) => set({ currentSession: session }),
 
-      setPurchased: (purchased) => set({ hasPurchased: purchased }),
-
-      incrementConnectionPoints: () =>
-        set((state) => ({ connectionPoints: state.connectionPoints + 1 })),
-
-      setCurrentSession: (session) => set({ currentSession: session }),
-
-      setDeviceId: (id) => set({ deviceId: id }),
-
-      resetPreferences: () =>
+      reset: () =>
         set({
-          ...initialState,
-          deviceId: get().deviceId, // Keep device ID
+          savedMovies: [],
+          likedMovies: [],
+          passedMovies: [],
+          currentSession: null,
         }),
     }),
     {
-      name: 'glo-storage',
+      name: 'glo',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        country: state.country,
-        hasCompletedOnboarding: state.hasCompletedOnboarding,
-        savedMovies: state.savedMovies,
-        likedMovies: state.likedMovies,
-        passedMovies: state.passedMovies,
-        connectionPoints: state.connectionPoints,
-        preferredGenres: state.preferredGenres,
-        hapticEnabled: state.hapticEnabled,
-        hasPurchased: state.hasPurchased,
-        deviceId: state.deviceId,
+      partialize: (s) => ({
+        country: s.country,
+        savedMovies: s.savedMovies,
+        likedMovies: s.likedMovies,
+        passedMovies: s.passedMovies,
+        hapticEnabled: s.hapticEnabled,
+        deviceId: s.deviceId,
       }),
     }
   )
 );
-
-// Selectors for optimal re-renders
-export const useCountry = () => useGloStore((s) => s.country);
-export const useHasCompletedOnboarding = () => useGloStore((s) => s.hasCompletedOnboarding);
-export const useSavedMovies = () => useGloStore((s) => s.savedMovies);
-export const useLikedMovies = () => useGloStore((s) => s.likedMovies);
-export const usePassedMovies = () => useGloStore((s) => s.passedMovies);
-export const useConnectionPoints = () => useGloStore((s) => s.connectionPoints);
-export const useHapticEnabled = () => useGloStore((s) => s.hapticEnabled);
-export const useHasPurchased = () => useGloStore((s) => s.hasPurchased);
-export const useCurrentSession = () => useGloStore((s) => s.currentSession);

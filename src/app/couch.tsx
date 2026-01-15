@@ -1,345 +1,131 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, Share } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
-import { ArrowLeft, Users, Copy, QrCode, Plus, Play, Check } from 'lucide-react-native';
+import { ArrowLeft, Copy, Users } from 'lucide-react-native';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { COLORS } from '@/lib/constants';
-import { useGloStore, useHapticEnabled } from '@/lib/store';
-import { Session } from '@/lib/types';
+import { useStore } from '@/lib/store';
 
-// Generate a random 6-character session code
-function generateSessionCode(): string {
+// Generate session code
+const genCode = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
-}
-
-// Generate a random device ID
-function generateDeviceId(): string {
-  return Math.random().toString(36).substring(2, 15);
-}
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+};
 
 export default function CouchScreen() {
   const insets = useSafeAreaInsets();
-  const hapticEnabled = useHapticEnabled();
+  const country = useStore((s) => s.country);
+  const haptic = useStore((s) => s.hapticEnabled);
+  const deviceId = useStore((s) => s.deviceId);
+  const setSession = useStore((s) => s.setSession);
+  const lang = country.language;
+
   const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose');
-  const [sessionCode, setSessionCode] = useState('');
+  const [code, setCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
 
-  const setCurrentSession = useGloStore((s) => s.setCurrentSession);
-  const deviceId = useGloStore((s) => s.deviceId);
-  const setDeviceId = useGloStore((s) => s.setDeviceId);
-
-  // Ensure device has an ID
-  useEffect(() => {
-    if (!deviceId) {
-      setDeviceId(generateDeviceId());
-    }
-  }, [deviceId, setDeviceId]);
-
-  const handleCreateSession = () => {
-    const code = generateSessionCode();
-    setSessionCode(code);
-    setParticipants([deviceId || 'host']);
+  const handleCreate = () => {
+    const newCode = genCode();
+    setCode(newCode);
     setMode('create');
-
-    if (hapticEnabled) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleCopyCode = async () => {
-    // In a real app, this would use Clipboard API
-    setCopied(true);
-    if (hapticEnabled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-
-    try {
-      await Share.share({
-        message: `Join my Glo session! Code: ${sessionCode}`,
-      });
-    } catch (error) {
-      // Ignore share errors
-    }
-
-    setTimeout(() => setCopied(false), 2000);
+  const handleShare = async () => {
+    await Share.share({ message: code });
   };
 
-  const handleStartSession = () => {
-    const session: Session = {
-      id: Math.random().toString(36).substring(2, 15),
-      code: sessionCode,
-      hostId: deviceId || 'host',
-      participants: participants,
-      movieQueue: [],
+  const handleStart = () => {
+    setSession({
+      id: Math.random().toString(36).slice(2),
+      code,
+      participants: [deviceId],
       swipes: {},
-      matches: [],
-      mode: 'quick',
-      createdAt: Date.now(),
       status: 'active',
-    };
-
-    setCurrentSession(session);
+    });
     router.push('/session');
   };
 
-  const handleJoinSession = () => {
+  const handleJoin = () => {
     if (joinCode.length !== 6) return;
-
-    // In production, this would validate the code with a backend
-    const session: Session = {
-      id: Math.random().toString(36).substring(2, 15),
+    setSession({
+      id: Math.random().toString(36).slice(2),
       code: joinCode.toUpperCase(),
-      hostId: 'remote-host',
-      participants: ['remote-host', deviceId || 'guest'],
-      movieQueue: [],
+      participants: [deviceId],
       swipes: {},
-      matches: [],
-      mode: 'quick',
-      createdAt: Date.now(),
       status: 'active',
-    };
-
-    setCurrentSession(session);
-    if (hapticEnabled) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    });
+    if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push('/session');
   };
-
-  // Simulate participants joining
-  useEffect(() => {
-    if (mode === 'create' && participants.length < 3) {
-      const timer = setTimeout(() => {
-        // Simulate a new participant joining (in production this would be real-time)
-        if (Math.random() > 0.5 && participants.length < 2) {
-          setParticipants((prev) => [...prev, `guest-${prev.length}`]);
-          if (hapticEnabled) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [mode, participants, hapticEnabled]);
 
   return (
-    <View className="flex-1" style={{ backgroundColor: COLORS.background }}>
-      {/* Gradient Background */}
-      <LinearGradient
-        colors={[COLORS.primaryDark, COLORS.background]}
-        locations={[0, 0.4]}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 350 }}
-      />
-
+    <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
       {/* Header */}
       <View
-        className="flex-row items-center px-5"
-        style={{ paddingTop: insets.top + 12 }}
+        className="flex-row items-center px-4 pb-4"
+        style={{ paddingTop: insets.top + 8 }}
       >
         <Pressable
-          onPress={() => {
-            if (mode !== 'choose') {
-              setMode('choose');
-            } else {
-              router.back();
-            }
-          }}
-          className="w-10 h-10 rounded-full items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
+          onPress={() => (mode === 'choose' ? router.back() : setMode('choose'))}
+          hitSlop={8}
         >
-          <ArrowLeft size={20} color={COLORS.textPrimary} />
+          <ArrowLeft size={24} color={COLORS.text} />
         </Pressable>
-        <Text className="text-xl font-bold ml-4" style={{ color: COLORS.textPrimary }}>
-          Couch Mode
-        </Text>
       </View>
 
-      <View className="flex-1 px-6 pt-8">
+      <View className="flex-1 px-6">
         {mode === 'choose' && (
           <>
-            {/* Header Content */}
-            <Animated.View entering={FadeInDown.springify()} className="items-center mb-8">
-              <View
-                className="w-20 h-20 rounded-full items-center justify-center mb-4"
-                style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
-              >
-                <Users size={40} color={COLORS.primary} />
-              </View>
-              <Text
-                className="text-3xl font-bold text-center mb-2"
-                style={{ color: COLORS.textPrimary }}
-              >
-                Pick together
-              </Text>
-              <Text
-                className="text-base text-center"
-                style={{ color: COLORS.textSecondary }}
-              >
-                Everyone swipes. Match when you all agree.
-              </Text>
-            </Animated.View>
+            <Text className="text-xl font-medium mb-8" style={{ color: COLORS.text }}>
+              {lang === 'sv' ? 'Välj tillsammans.' : 'Choose together.'}
+            </Text>
 
-            {/* Options */}
-            <Animated.View entering={FadeInUp.delay(100).springify()}>
-              <Pressable
-                onPress={handleCreateSession}
-                className="rounded-2xl p-5 mb-4 active:opacity-90"
-                style={{ backgroundColor: COLORS.backgroundCard }}
-              >
-                <View className="flex-row items-center">
-                  <View
-                    className="w-12 h-12 rounded-xl items-center justify-center"
-                    style={{ backgroundColor: COLORS.primaryDark }}
-                  >
-                    <Plus size={24} color={COLORS.textPrimary} />
-                  </View>
-                  <View className="flex-1 ml-4">
-                    <Text className="text-lg font-semibold" style={{ color: COLORS.textPrimary }}>
-                      Create Session
-                    </Text>
-                    <Text className="text-sm" style={{ color: COLORS.textSecondary }}>
-                      Start a new session and invite others
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            </Animated.View>
+            <Pressable
+              onPress={handleCreate}
+              className="py-4 mb-3"
+              style={{ backgroundColor: COLORS.bgCard }}
+            >
+              <Text className="text-center" style={{ color: COLORS.text }}>
+                {lang === 'sv' ? 'Starta session' : 'Start session'}
+              </Text>
+            </Pressable>
 
-            <Animated.View entering={FadeInUp.delay(150).springify()}>
-              <Pressable
-                onPress={() => setMode('join')}
-                className="rounded-2xl p-5 active:opacity-90"
-                style={{ backgroundColor: COLORS.backgroundCard }}
-              >
-                <View className="flex-row items-center">
-                  <View
-                    className="w-12 h-12 rounded-xl items-center justify-center"
-                    style={{ backgroundColor: COLORS.saveBg }}
-                  >
-                    <QrCode size={24} color={COLORS.save} />
-                  </View>
-                  <View className="flex-1 ml-4">
-                    <Text className="text-lg font-semibold" style={{ color: COLORS.textPrimary }}>
-                      Join Session
-                    </Text>
-                    <Text className="text-sm" style={{ color: COLORS.textSecondary }}>
-                      Enter a code to join an existing session
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            </Animated.View>
+            <Pressable
+              onPress={() => setMode('join')}
+              className="py-4"
+              style={{ backgroundColor: COLORS.bgCard }}
+            >
+              <Text className="text-center" style={{ color: COLORS.text }}>
+                {lang === 'sv' ? 'Gå med' : 'Join'}
+              </Text>
+            </Pressable>
           </>
         )}
 
         {mode === 'create' && (
           <>
-            <Animated.View entering={FadeInDown.springify()} className="items-center mb-8">
+            <Text className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+              {lang === 'sv' ? 'Dela koden' : 'Share the code'}
+            </Text>
+
+            <Pressable onPress={handleShare} className="py-6 mb-8" style={{ backgroundColor: COLORS.bgCard }}>
               <Text
-                className="text-2xl font-bold text-center mb-2"
-                style={{ color: COLORS.textPrimary }}
+                className="text-3xl font-medium text-center tracking-widest"
+                style={{ color: COLORS.text, letterSpacing: 8 }}
               >
-                Share this code
+                {code}
               </Text>
-              <Text
-                className="text-base text-center mb-6"
-                style={{ color: COLORS.textSecondary }}
-              >
-                Others can join with this code
-              </Text>
+            </Pressable>
 
-              {/* Session Code */}
-              <Pressable
-                onPress={handleCopyCode}
-                className="rounded-2xl px-8 py-5 mb-4 active:scale-95"
-                style={{ backgroundColor: COLORS.backgroundCard }}
-              >
-                <Text
-                  className="text-4xl font-bold tracking-widest text-center"
-                  style={{ color: COLORS.primary, letterSpacing: 8 }}
-                >
-                  {sessionCode}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={handleCopyCode}
-                className="flex-row items-center px-4 py-2 rounded-full"
-                style={{ backgroundColor: copied ? COLORS.available : 'rgba(255,255,255,0.1)' }}
-              >
-                {copied ? (
-                  <>
-                    <Check size={16} color={COLORS.textPrimary} />
-                    <Text className="text-sm font-medium ml-2" style={{ color: COLORS.textPrimary }}>
-                      Copied!
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} color={COLORS.textSecondary} />
-                    <Text className="text-sm font-medium ml-2" style={{ color: COLORS.textSecondary }}>
-                      Tap to share
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </Animated.View>
-
-            {/* Participants */}
-            <Animated.View entering={FadeInUp.delay(100).springify()}>
-              <Text className="text-sm font-semibold uppercase mb-3" style={{ color: COLORS.textMuted }}>
-                Waiting for others ({participants.length})
-              </Text>
-              <View
-                className="rounded-2xl p-4"
-                style={{ backgroundColor: COLORS.backgroundCard }}
-              >
-                {participants.map((p, i) => (
-                  <Animated.View
-                    key={p}
-                    entering={ZoomIn.delay(i * 100).springify()}
-                    className="flex-row items-center py-2"
-                  >
-                    <View
-                      className="w-10 h-10 rounded-full items-center justify-center"
-                      style={{ backgroundColor: i === 0 ? COLORS.primary : COLORS.save }}
-                    >
-                      <Text className="text-base font-bold" style={{ color: '#000' }}>
-                        {i === 0 ? 'You' : `P${i + 1}`}
-                      </Text>
-                    </View>
-                    <Text className="text-base ml-3" style={{ color: COLORS.textPrimary }}>
-                      {i === 0 ? 'You (Host)' : `Participant ${i + 1}`}
-                    </Text>
-                    <View
-                      className="ml-auto w-2 h-2 rounded-full"
-                      style={{ backgroundColor: COLORS.available }}
-                    />
-                  </Animated.View>
-                ))}
-              </View>
-            </Animated.View>
-
-            {/* Start Button */}
-            <View className="flex-1" />
             <Pressable
-              onPress={handleStartSession}
-              className="rounded-2xl py-4 flex-row items-center justify-center mb-8 active:opacity-90"
-              style={{ backgroundColor: COLORS.primary }}
+              onPress={handleStart}
+              className="py-4"
+              style={{ backgroundColor: COLORS.text }}
             >
-              <Play size={20} color="#000" fill="#000" />
-              <Text className="text-lg font-bold ml-2" style={{ color: '#000' }}>
-                Start Swiping
+              <Text className="text-center" style={{ color: COLORS.bg }}>
+                {lang === 'sv' ? 'Börja' : 'Start'}
               </Text>
             </Pressable>
           </>
@@ -347,56 +133,39 @@ export default function CouchScreen() {
 
         {mode === 'join' && (
           <>
-            <Animated.View entering={FadeInDown.springify()} className="items-center mb-8">
-              <Text
-                className="text-2xl font-bold text-center mb-2"
-                style={{ color: COLORS.textPrimary }}
-              >
-                Enter session code
-              </Text>
-              <Text
-                className="text-base text-center"
-                style={{ color: COLORS.textSecondary }}
-              >
-                Ask the host for the 6-character code
-              </Text>
-            </Animated.View>
+            <Text className="text-sm mb-4" style={{ color: COLORS.textMuted }}>
+              {lang === 'sv' ? 'Ange kod' : 'Enter code'}
+            </Text>
 
-            <Animated.View entering={FadeInUp.delay(100).springify()}>
-              <TextInput
-                value={joinCode}
-                onChangeText={(text) => setJoinCode(text.toUpperCase().slice(0, 6))}
-                placeholder="XXXXXX"
-                placeholderTextColor={COLORS.textMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={6}
-                className="rounded-2xl px-6 py-5 text-center text-3xl font-bold"
-                style={{
-                  backgroundColor: COLORS.backgroundCard,
-                  color: COLORS.primary,
-                  letterSpacing: 8,
-                }}
-              />
-            </Animated.View>
-
-            {/* Join Button */}
-            <View className="flex-1" />
-            <Pressable
-              onPress={handleJoinSession}
-              disabled={joinCode.length !== 6}
-              className="rounded-2xl py-4 flex-row items-center justify-center mb-8"
+            <TextInput
+              value={joinCode}
+              onChangeText={(t) => setJoinCode(t.toUpperCase().slice(0, 6))}
+              placeholder="XXXXXX"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={6}
+              className="py-6 text-center text-2xl font-medium mb-8"
               style={{
-                backgroundColor: joinCode.length === 6 ? COLORS.primary : COLORS.backgroundCard,
-                opacity: joinCode.length === 6 ? 1 : 0.5,
+                backgroundColor: COLORS.bgCard,
+                color: COLORS.text,
+                letterSpacing: 8,
+              }}
+            />
+
+            <Pressable
+              onPress={handleJoin}
+              disabled={joinCode.length !== 6}
+              className="py-4"
+              style={{
+                backgroundColor: joinCode.length === 6 ? COLORS.text : COLORS.bgCard,
               }}
             >
-              <Users size={20} color={joinCode.length === 6 ? '#000' : COLORS.textMuted} />
               <Text
-                className="text-lg font-bold ml-2"
-                style={{ color: joinCode.length === 6 ? '#000' : COLORS.textMuted }}
+                className="text-center"
+                style={{ color: joinCode.length === 6 ? COLORS.bg : COLORS.textMuted }}
               >
-                Join Session
+                {lang === 'sv' ? 'Gå med' : 'Join'}
               </Text>
             </Pressable>
           </>

@@ -1,307 +1,138 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSpring,
-  Easing,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Settings, Users, Gamepad2, Bookmark, Sparkles } from 'lucide-react-native';
+import { Settings, Users, Bookmark, Gamepad2 } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { SwipeCard, SwipeButtons } from '@/components/SwipeCard';
+import { SwipeCard } from '@/components/SwipeCard';
 import { Movie } from '@/lib/types';
-import { COLORS } from '@/lib/constants';
-import { useGloStore, useCountry, useHapticEnabled, useHasPurchased } from '@/lib/store';
-import { getMoviesForCountry, getRecommendedMovies } from '@/lib/movies';
+import { COLORS, STREAMING_SERVICES } from '@/lib/constants';
+import { useStore } from '@/lib/store';
+import { getUnseenMovies } from '@/lib/movies';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const country = useCountry();
-  const hapticEnabled = useHapticEnabled();
-  const hasPurchased = useHasPurchased();
-
-  const likeMovie = useGloStore((s) => s.likeMovie);
-  const passMovie = useGloStore((s) => s.passMovie);
-  const saveMovie = useGloStore((s) => s.saveMovie);
-  const likedMovies = useGloStore((s) => s.likedMovies);
-  const passedMovies = useGloStore((s) => s.passedMovies);
-  const preferredGenres = useGloStore((s) => s.preferredGenres);
+  const country = useStore((s) => s.country);
+  const haptic = useStore((s) => s.hapticEnabled);
+  const likedMovies = useStore((s) => s.likedMovies);
+  const passedMovies = useStore((s) => s.passedMovies);
+  const likeMovie = useStore((s) => s.likeMovie);
+  const passMovie = useStore((s) => s.passMovie);
+  const saveMovie = useStore((s) => s.saveMovie);
 
   const [movies, setMovies] = useState<Movie[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [matchedMovie, setMatchedMovie] = useState<Movie | null>(null);
+  const [index, setIndex] = useState(0);
+  const [matched, setMatched] = useState<Movie | null>(null);
 
-  // Ambient animation for the glow effect
-  const glowOpacity = useSharedValue(0.3);
-
+  // Load movies - no onboarding, just start
   useEffect(() => {
-    glowOpacity.value = withRepeat(
-      withTiming(0.6, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
-  // Load movies based on country
-  useEffect(() => {
-    if (country) {
-      const allMovies = getMoviesForCountry(country.code);
-      const recommended = getRecommendedMovies(allMovies, likedMovies, passedMovies, preferredGenres);
-      setMovies(recommended);
-      setCurrentIndex(0);
-    }
-  }, [country, likedMovies.length, passedMovies.length]);
+    const unseen = getUnseenMovies(country.code, likedMovies, passedMovies);
+    setMovies(unseen);
+    setIndex(0);
+  }, [country.code, likedMovies.length, passedMovies.length]);
 
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up') => {
-    const currentMovie = movies[currentIndex];
-    if (!currentMovie) return;
+    const movie = movies[index];
+    if (!movie) return;
 
     if (direction === 'right') {
-      likeMovie(currentMovie.id);
-      // For Quick Swipe mode, a "like" is essentially a match
-      setMatchedMovie(currentMovie);
+      likeMovie(movie.id);
+      setMatched(movie);
     } else if (direction === 'left') {
-      passMovie(currentMovie.id);
+      passMovie(movie.id);
     } else if (direction === 'up') {
-      saveMovie(currentMovie.id);
-      if (hapticEnabled) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      saveMovie(movie.id);
+      if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    setCurrentIndex((prev) => prev + 1);
-  }, [movies, currentIndex, likeMovie, passMovie, saveMovie, hapticEnabled]);
+    setIndex((i) => i + 1);
+  }, [movies, index, likeMovie, passMovie, saveMovie, haptic]);
 
-  const handleButtonSwipe = useCallback((direction: 'left' | 'right' | 'up') => {
-    handleSwipe(direction);
-  }, [handleSwipe]);
+  const current = movies[index];
+  const next = movies[index + 1];
 
-  const dismissMatch = () => {
-    setMatchedMovie(null);
-  };
-
-  const currentMovie = movies[currentIndex];
-  const nextMovie = movies[currentIndex + 1];
+  // Get streaming service name
+  const getServiceName = (id: string) =>
+    STREAMING_SERVICES.find((s) => s.id === id)?.name || id;
 
   return (
-    <View className="flex-1" style={{ backgroundColor: COLORS.background }}>
-      {/* Ambient Glow */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            top: -100,
-            left: -100,
-            right: -100,
-            height: 400,
-            borderRadius: 200,
-            backgroundColor: COLORS.primary,
-            filter: 'blur(100px)',
-          },
-          glowStyle,
-        ]}
-      />
-
-      {/* Header */}
+    <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
+      {/* Minimal header - region indicator + icons */}
       <View
-        className="flex-row items-center justify-between px-5"
-        style={{ paddingTop: insets.top + 8 }}
+        className="flex-row items-center justify-between px-4"
+        style={{ paddingTop: insets.top + 4 }}
       >
-        <View>
-          <Text className="text-3xl font-bold" style={{ color: COLORS.textPrimary }}>
-            Glo
-          </Text>
-          <Text className="text-sm" style={{ color: COLORS.textMuted }}>
-            {country?.flag} {country?.name}
-          </Text>
-        </View>
-        <View className="flex-row items-center" style={{ columnGap: 12 }}>
-          <Pressable
-            onPress={() => router.push('/saved')}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: COLORS.backgroundCard }}
-          >
-            <Bookmark size={20} color={COLORS.textSecondary} />
+        <Text className="text-sm" style={{ color: COLORS.textMuted }}>
+          {country.flag} {country.name}
+        </Text>
+        <View className="flex-row" style={{ columnGap: 16 }}>
+          <Pressable onPress={() => router.push('/spellage')} hitSlop={8}>
+            <Gamepad2 size={20} color={COLORS.textMuted} />
           </Pressable>
-          <Pressable
-            onPress={() => router.push('/settings')}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ backgroundColor: COLORS.backgroundCard }}
-          >
-            <Settings size={20} color={COLORS.textSecondary} />
+          <Pressable onPress={() => router.push('/couch')} hitSlop={8}>
+            <Users size={20} color={COLORS.textMuted} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/saved')} hitSlop={8}>
+            <Bookmark size={20} color={COLORS.textMuted} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/settings')} hitSlop={8}>
+            <Settings size={20} color={COLORS.textMuted} />
           </Pressable>
         </View>
       </View>
 
-      {/* Mode Buttons */}
-      <View className="flex-row px-5 mt-4" style={{ columnGap: 8 }}>
-        <Pressable
-          onPress={() => {
-            if (!hasPurchased) {
-              router.push('/purchase');
-            } else {
-              router.push('/couch');
-            }
-          }}
-          className="flex-1 flex-row items-center justify-center py-3 rounded-xl active:opacity-80"
-          style={{ backgroundColor: COLORS.backgroundCard }}
-        >
-          <Users size={18} color={COLORS.primary} />
-          <Text className="text-sm font-medium ml-2" style={{ color: COLORS.textPrimary }}>
-            Couch Mode
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            if (!hasPurchased) {
-              router.push('/purchase');
-            } else {
-              router.push('/game');
-            }
-          }}
-          className="flex-1 flex-row items-center justify-center py-3 rounded-xl active:opacity-80"
-          style={{ backgroundColor: COLORS.backgroundCard }}
-        >
-          <Gamepad2 size={18} color={COLORS.primary} />
-          <Text className="text-sm font-medium ml-2" style={{ color: COLORS.textPrimary }}>
-            Spelläge
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Card Stack */}
+      {/* Card stack - full screen, the movie IS the interface */}
       <View
-        className="flex-1 items-center justify-center mt-4"
-        style={{ paddingHorizontal: 16 }}
+        className="flex-1"
+        style={{
+          marginTop: 8,
+          marginBottom: insets.bottom + 8,
+          marginHorizontal: 8,
+        }}
       >
-        {movies.length === 0 || currentIndex >= movies.length ? (
-          <View className="items-center px-8">
-            <Sparkles size={48} color={COLORS.primary} />
-            <Text
-              className="text-2xl font-bold mt-4 text-center"
-              style={{ color: COLORS.textPrimary }}
-            >
-              All caught up!
-            </Text>
-            <Text
-              className="text-base text-center mt-2"
-              style={{ color: COLORS.textSecondary }}
-            >
-              You've seen all available movies. Check back later for more.
+        {!current ? (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-base" style={{ color: COLORS.textMuted }}>
+              {country.language === 'sv' ? 'Inga fler filmer' : 'No more movies'}
             </Text>
           </View>
         ) : (
-          <View className="relative" style={{ width: SCREEN_WIDTH - 32 }}>
-            {/* Next card (behind) */}
-            {nextMovie && (
-              <View
-                className="absolute"
-                style={{
-                  transform: [{ scale: 0.95 }, { translateY: 10 }],
-                  opacity: 0.6,
-                }}
-              >
-                <SwipeCard
-                  movie={nextMovie}
-                  onSwipe={() => {}}
-                  isFirst={false}
-                  hapticEnabled={hapticEnabled}
-                />
-              </View>
-            )}
-
-            {/* Current card */}
-            {currentMovie && (
-              <SwipeCard
-                key={currentMovie.id}
-                movie={currentMovie}
-                onSwipe={handleSwipe}
-                isFirst={true}
-                hapticEnabled={hapticEnabled}
-              />
-            )}
+          <View className="flex-1 relative">
+            {next && <SwipeCard movie={next} onSwipe={() => {}} isTop={false} haptic={haptic} />}
+            <SwipeCard key={current.id} movie={current} onSwipe={handleSwipe} isTop={true} haptic={haptic} />
           </View>
         )}
       </View>
 
-      {/* Action Buttons */}
-      {currentMovie && (
-        <View style={{ paddingBottom: insets.bottom + 8 }}>
-          <SwipeButtons
-            onPass={() => handleButtonSwipe('left')}
-            onLike={() => handleButtonSwipe('right')}
-            onSave={() => handleButtonSwipe('up')}
-            hapticEnabled={hapticEnabled}
-          />
-        </View>
-      )}
-
-      {/* Match Modal */}
-      {matchedMovie && (
+      {/* Match overlay - minimal, calm */}
+      {matched && (
         <Animated.View
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(200)}
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(150)}
           className="absolute inset-0 items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
         >
-          <Pressable
-            className="absolute inset-0"
-            onPress={dismissMatch}
-          />
-          <Animated.View
-            entering={SlideInUp.springify().damping(15)}
-            className="items-center px-8"
-          >
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center mb-6"
-              style={{ backgroundColor: COLORS.matchGlow }}
-            >
-              <Sparkles size={40} color={COLORS.match} />
-            </View>
-            <Text
-              className="text-3xl font-bold text-center mb-2"
-              style={{ color: COLORS.textPrimary }}
-            >
-              Great choice
+          <Pressable className="absolute inset-0" onPress={() => setMatched(null)} />
+          <View className="items-center px-8">
+            <Text className="text-2xl font-medium mb-2" style={{ color: COLORS.text }}>
+              {matched.title}
             </Text>
-            <Text
-              className="text-xl font-medium text-center mb-6"
-              style={{ color: COLORS.primary }}
-            >
-              {matchedMovie.title}
-            </Text>
-            <Text
-              className="text-base text-center mb-8"
-              style={{ color: COLORS.textSecondary }}
-            >
-              {matchedMovie.availability.filter(a => a.type === 'stream').length > 0
-                ? `Available on ${matchedMovie.availability.filter(a => a.type === 'stream').map(a => a.service.name).join(', ')}`
-                : 'Available to rent or buy'}
+            <Text className="text-sm mb-8" style={{ color: COLORS.textMuted }}>
+              {matched.availability.map((a) => getServiceName(a.serviceId)).join(' · ')}
             </Text>
             <Pressable
-              onPress={dismissMatch}
-              className="px-8 py-4 rounded-2xl"
-              style={{ backgroundColor: COLORS.primary }}
+              onPress={() => setMatched(null)}
+              className="px-6 py-3"
+              style={{ backgroundColor: COLORS.bgCard }}
             >
-              <Text className="text-lg font-bold" style={{ color: '#000' }}>
-                Keep swiping
+              <Text className="text-sm" style={{ color: COLORS.text }}>
+                {country.language === 'sv' ? 'Fortsätt' : 'Continue'}
               </Text>
             </Pressable>
-          </Animated.View>
+          </View>
         </Animated.View>
       )}
     </View>
