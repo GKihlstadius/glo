@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Settings, Users, Bookmark, Gamepad2 } from 'lucide-react-native';
+import { Settings, Users, Bookmark, Gamepad2, Bug } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { SwipeCard } from '@/components/SwipeCard';
 import { ProviderRow } from '@/components/ProviderButton';
@@ -12,6 +12,10 @@ import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
 import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers } from '@/lib/movies';
+import { prefetchMovieImages } from '@/lib/image-cache';
+
+// Dev mode flag - set to true to show debug overlay
+const DEV_MODE = __DEV__;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -29,6 +33,7 @@ export default function HomeScreen() {
   const [currentItem, setCurrentItem] = useState<FeedItem | null>(null);
   const [nextItem, setNextItem] = useState<FeedItem | null>(null);
   const [matched, setMatched] = useState<FeedItem | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Feed engine reference
   const feedEngineRef = useRef<FeedEngine | null>(null);
@@ -49,6 +54,12 @@ export default function HomeScreen() {
     const second = feedEngineRef.current.getNext();
     setCurrentItem(first);
     setNextItem(second);
+
+    // Prefetch upcoming images
+    if (feedEngineRef.current) {
+      const upcoming = feedEngineRef.current.prefetch(10);
+      prefetchMovieImages(upcoming);
+    }
   }, [country.code]);
 
   // Update feed engine when taste profile changes
@@ -57,6 +68,14 @@ export default function HomeScreen() {
       feedEngineRef.current.updateProfile(tasteProfile);
     }
   }, [tasteProfile]);
+
+  // Prefetch more images when queue runs low
+  const prefetchMore = useCallback(() => {
+    if (feedEngineRef.current) {
+      const upcoming = feedEngineRef.current.prefetch(10);
+      prefetchMovieImages(upcoming);
+    }
+  }, []);
 
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up') => {
     if (!currentItem || !feedEngineRef.current) return;
@@ -80,13 +99,22 @@ export default function HomeScreen() {
     setCurrentItem(nextItem);
     const newNext = feedEngineRef.current.getNext();
     setNextItem(newNext);
-  }, [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic]);
+
+    // Prefetch more images periodically
+    prefetchMore();
+  }, [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic, prefetchMore]);
 
   // Get streaming offers for matched movie
   const matchedOffers = useMemo(() => {
     if (!matched) return [];
     return getStreamingOffers(matched.movie.id, country.code);
   }, [matched, country.code]);
+
+  // Get feed stats for debug
+  const feedStats = useMemo(() => {
+    if (!feedEngineRef.current) return null;
+    return feedEngineRef.current.getStats();
+  }, [currentItem]); // Re-compute when current item changes
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
@@ -95,10 +123,22 @@ export default function HomeScreen() {
         className="flex-row items-center justify-between px-4"
         style={{ paddingTop: insets.top + 4 }}
       >
-        <Text className="text-sm" style={{ color: COLORS.textMuted }}>
-          {country.flag}
-        </Text>
+        <Pressable
+          onPress={() => {
+            if (DEV_MODE) setShowDebug(!showDebug);
+          }}
+          hitSlop={8}
+        >
+          <Text className="text-sm" style={{ color: showDebug ? '#00FF00' : COLORS.textMuted }}>
+            {country.flag}
+          </Text>
+        </Pressable>
         <View className="flex-row" style={{ columnGap: 16 }}>
+          {DEV_MODE && (
+            <Pressable onPress={() => setShowDebug(!showDebug)} hitSlop={8}>
+              <Bug size={20} color={showDebug ? '#00FF00' : COLORS.textMuted} />
+            </Pressable>
+          )}
           <Pressable onPress={() => router.push('/spellage')} hitSlop={8}>
             <Gamepad2 size={20} color={COLORS.textMuted} />
           </Pressable>
@@ -113,6 +153,20 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* Debug overlay */}
+      {showDebug && feedStats && (
+        <View style={styles.feedDebugOverlay}>
+          <Text style={styles.feedDebugText}>Queue: {feedStats.queueLength}</Text>
+          <Text style={styles.feedDebugText}>History: {feedStats.historySize}</Text>
+          <Text style={styles.feedDebugText}>Fallback: L{feedStats.fallbackLevel}</Text>
+          <Text style={styles.feedDebugText}>
+            Ratios: E{(feedStats.bucketRatios.exploit * 100).toFixed(0)}% /
+            X{(feedStats.bucketRatios.explore * 100).toFixed(0)}% /
+            W{(feedStats.bucketRatios.wildcard * 100).toFixed(0)}%
+          </Text>
+        </View>
+      )}
 
       {/* Card stack - full screen, the movie IS the interface */}
       <View
@@ -147,6 +201,12 @@ export default function HomeScreen() {
               isTop={true}
               haptic={haptic}
               countryCode={country.code}
+              showDebug={showDebug}
+              debugInfo={{
+                bucket: currentItem.bucket,
+                score: currentItem.score,
+                reason: currentItem.reason,
+              }}
             />
           </View>
         )}
@@ -179,7 +239,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => setMatched(null)}
               className="px-6 py-3"
-              style={{ backgroundColor: COLORS.bgCard }}
+              style={{ backgroundColor: COLORS.bgCard, borderRadius: 8 }}
             >
               <Text className="text-sm" style={{ color: COLORS.text }}>
                 {lang === 'sv' ? 'Fortsätt' : 'Continue'}
@@ -191,3 +251,20 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  feedDebugOverlay: {
+    position: 'absolute',
+    top: 100,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    padding: 8,
+    borderRadius: 8,
+    zIndex: 100,
+  },
+  feedDebugText: {
+    color: '#00FF00',
+    fontSize: 10,
+    fontFamily: 'monospace',
+  },
+});

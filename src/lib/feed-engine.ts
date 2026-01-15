@@ -1,10 +1,12 @@
 import { Movie, TasteProfile, FeedItem, FeedBucket, Mood } from './types';
-import { getMovies, filterByMood } from './movies';
+import { getMovies, filterByMood, getStreamingOffers } from './movies';
+import { CandidateStore } from './candidate-store';
 
 // Constants for feed algorithm
 const QUEUE_SIZE = 40;
+const REFILL_THRESHOLD = 15;
 const HISTORY_WINDOW_SIZE = 100;
-const DECAY_FACTOR = 0.95; // Per-session decay for taste weights
+const DECAY_FACTOR = 0.95;
 const PASS_STREAK_EXPLORE_THRESHOLD = 5;
 
 // Bucket distribution (adjusts dynamically)
@@ -16,13 +18,18 @@ const BASE_WILDCARD_RATIO = 0.1;
 export function createDefaultTasteProfile(): TasteProfile {
   return {
     genres: {},
+    directors: {},
+    cast: {},
     preferredRuntime: 110,
+    runtimeVariance: 30,
     eraWeights: { classic: 0, modern: 0, recent: 0.1 },
     moodWeights: { calm: 0, fun: 0, intense: 0 },
     likeCount: 0,
     passCount: 0,
     saveCount: 0,
     consecutivePasses: 0,
+    recentGenres: [],
+    recentDirectors: [],
     lastUpdated: Date.now(),
   };
 }
@@ -34,7 +41,7 @@ export function updateTasteProfile(
   action: 'like' | 'pass' | 'save'
 ): TasteProfile {
   const updated = { ...profile };
-  const weight = action === 'like' ? 0.15 : action === 'save' ? 0.2 : -0.08;
+  const weight = action === 'like' ? 0.15 : action === 'save' ? 0.25 : -0.08;
 
   // Update genre affinities
   movie.genres?.forEach((genre) => {
@@ -54,11 +61,38 @@ export function updateTasteProfile(
     updated.eraWeights[movie.era] = Math.max(-1, Math.min(1, current + weight * 0.5));
   }
 
+  // Update director affinities
+  movie.directors?.forEach((director) => {
+    const current = updated.directors[director] || 0;
+    updated.directors[director] = Math.max(-1, Math.min(1, current + weight * 1.5));
+  });
+
+  // Update cast affinities
+  movie.cast?.forEach((actor) => {
+    const current = updated.cast[actor] || 0;
+    updated.cast[actor] = Math.max(-1, Math.min(1, current + weight));
+  });
+
   // Update runtime preference (running average for likes only)
   if (action === 'like' || action === 'save') {
     const count = updated.likeCount + updated.saveCount + 1;
     updated.preferredRuntime =
       (updated.preferredRuntime * (count - 1) + movie.runtime) / count;
+  }
+
+  // Track recent genres for diversity
+  if (action === 'like' || action === 'save') {
+    updated.recentGenres = [
+      ...(movie.genres?.slice(0, 2) || []),
+      ...updated.recentGenres,
+    ].slice(0, 10);
+
+    if (movie.directors?.[0]) {
+      updated.recentDirectors = [
+        movie.directors[0],
+        ...updated.recentDirectors,
+      ].slice(0, 5);
+    }
   }
 
   // Update counts
@@ -96,6 +130,16 @@ export function decayTasteProfile(profile: TasteProfile): TasteProfile {
     Object.entries(updated.eraWeights).map(([k, v]) => [k, v * DECAY_FACTOR])
   );
 
+  // Decay director weights
+  updated.directors = Object.fromEntries(
+    Object.entries(updated.directors).map(([k, v]) => [k, v * DECAY_FACTOR])
+  );
+
+  // Decay cast weights
+  updated.cast = Object.fromEntries(
+    Object.entries(updated.cast).map(([k, v]) => [k, v * DECAY_FACTOR])
+  );
+
   return updated;
 }
 
@@ -104,7 +148,7 @@ function scoreMovie(movie: Movie, profile: TasteProfile): number {
   let score = 0;
 
   // Base popularity score (0-30 points)
-  score += (movie.popularity || 50) * 0.3;
+  score += (movie.popularityScore || 50) * 0.3;
 
   // Genre affinity (up to 30 points)
   const genreScore =
@@ -124,6 +168,16 @@ function scoreMovie(movie: Movie, profile: TasteProfile): number {
   // Runtime proximity (up to 15 points, penalty for deviation)
   const runtimeDiff = Math.abs(movie.runtime - profile.preferredRuntime);
   score += Math.max(0, 15 - runtimeDiff * 0.2);
+
+  // Director affinity bonus
+  const directorScore =
+    movie.directors?.reduce((sum, d) => sum + (profile.directors[d] || 0), 0) || 0;
+  score += directorScore * 10;
+
+  // Cast affinity bonus
+  const castScore =
+    movie.cast?.reduce((sum, a) => sum + (profile.cast[a] || 0), 0) || 0;
+  score += castScore * 5;
 
   return score;
 }
@@ -171,6 +225,8 @@ export class FeedEngine {
   private passedIds: Set<string>;
   private savedIds: Set<string>;
   private moodFilter: Mood | null;
+  private candidateStore: CandidateStore;
+  private fallbackLevel: number = 0;
 
   constructor(
     countryCode: string,
@@ -186,6 +242,11 @@ export class FeedEngine {
     this.passedIds = new Set(passedIds);
     this.savedIds = new Set(savedIds);
     this.moodFilter = moodFilter;
+
+    // Initialize candidate store
+    const allSeenIds = [...likedIds, ...passedIds, ...savedIds];
+    this.candidateStore = new CandidateStore(countryCode, tasteProfile, allSeenIds);
+
     this.refillQueue();
   }
 
@@ -221,21 +282,21 @@ export class FeedEngine {
     );
   }
 
-  // Refill the queue
+  // Refill the queue with smart selection
   private refillQueue(): void {
     const candidates = this.getCandidates();
 
     // Fallback ladder
-    let fallbackLevel = 0;
+    this.fallbackLevel = 0;
     let pool = candidates;
 
     if (candidates.length === 0) {
-      fallbackLevel = 1;
+      this.fallbackLevel = 1;
       pool = this.getAllCandidates();
     }
 
     if (pool.length === 0) {
-      fallbackLevel = 2;
+      this.fallbackLevel = 2;
       // Ultimate fallback: show already-swiped movies again (but not saved)
       let movies = getMovies(this.countryCode);
       if (this.moodFilter) {
@@ -245,7 +306,7 @@ export class FeedEngine {
     }
 
     if (pool.length === 0) {
-      fallbackLevel = 3;
+      this.fallbackLevel = 3;
       // Absolute last resort: any movie in region
       pool = getMovies(this.countryCode);
     }
@@ -304,7 +365,7 @@ export class FeedEngine {
           movie: selected.movie,
           bucket,
           score: selected.score,
-          reason: fallbackLevel > 0 ? `Fallback L${fallbackLevel}` : reason,
+          reason: this.fallbackLevel > 0 ? `Fallback L${this.fallbackLevel}` : reason,
         });
 
         // Remove from scored pool to avoid duplicates
@@ -316,9 +377,10 @@ export class FeedEngine {
     this.queue.push(...newItems);
   }
 
-  // Get next movie from queue
+  // Get next movie from queue - NEVER returns null if catalog exists
   getNext(): FeedItem | null {
-    if (this.queue.length < 10) {
+    // Refill if running low
+    if (this.queue.length < REFILL_THRESHOLD) {
       this.refillQueue();
     }
 
@@ -334,6 +396,14 @@ export class FeedEngine {
       }
     }
 
+    // Emergency refill if queue is empty
+    if (!item && this.hasContent()) {
+      this.fallbackLevel = 3;
+      this.historyWindow.clear(); // Clear history to allow repeats
+      this.refillQueue();
+      return this.queue.shift() || null;
+    }
+
     return item || null;
   }
 
@@ -343,6 +413,12 @@ export class FeedEngine {
       this.refillQueue();
     }
     return this.queue.slice(0, count);
+  }
+
+  // Prefetch next N items (for image preloading)
+  prefetch(count: number = 10): Movie[] {
+    const items = this.peek(count);
+    return items.map((item) => item.movie);
   }
 
   // Record a swipe action
@@ -357,30 +433,48 @@ export class FeedEngine {
 
     // Remove from queue if present
     this.queue = this.queue.filter((item) => item.movie.id !== movieId);
+
+    // Update candidate store
+    this.candidateStore.recordSwipe(movieId, action);
   }
 
   // Get queue stats (for debug)
-  getStats(): { queueLength: number; historySize: number; bucketRatios: Record<string, number> } {
+  getStats(): {
+    queueLength: number;
+    historySize: number;
+    bucketRatios: Record<string, number>;
+    fallbackLevel: number;
+    candidateStoreStats: ReturnType<CandidateStore['getStats']>;
+  } {
     const ratios = getBucketRatios(this.tasteProfile);
     return {
       queueLength: this.queue.length,
       historySize: this.historyWindow.size,
       bucketRatios: ratios,
+      fallbackLevel: this.fallbackLevel,
+      candidateStoreStats: this.candidateStore.getStats(),
     };
   }
 
   // Update taste profile
   updateProfile(profile: TasteProfile): void {
     this.tasteProfile = profile;
+    this.candidateStore.updateTasteProfile(profile);
   }
 
-  // Check if feed has content
+  // Check if feed has content - MUST return true if any movies exist in region
   hasContent(): boolean {
-    return this.queue.length > 0 || this.getCandidates().length > 0 || this.getAllCandidates().length > 0;
+    const totalMovies = getMovies(this.countryCode).length;
+    return totalMovies > 0;
+  }
+
+  // Get current fallback level (for debugging)
+  getFallbackLevel(): number {
+    return this.fallbackLevel;
   }
 }
 
-// Hook for using feed engine in components
+// Factory function for creating feed engine
 export function createFeedEngine(
   countryCode: string,
   tasteProfile: TasteProfile,

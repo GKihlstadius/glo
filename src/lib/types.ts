@@ -22,7 +22,7 @@ export interface StreamingOffer {
   price?: number;
   currency?: string;
   deepLink?: string;
-  webUrl: string;
+  webUrl?: string;
   quality?: 'sd' | 'hd' | '4k';
 }
 
@@ -50,9 +50,11 @@ export interface Movie {
   ratingCount: number;
   popularityScore: number;
 
-  // Images (TMDB paths)
-  posterPath: string | null;
-  backdropPath: string | null;
+  // Images - posterUrl for display, posterPath for TMDB path
+  posterUrl: string;
+  posterPath?: string | null;
+  backdropUrl?: string | null;
+  backdropPath?: string | null;
 
   // Credits (for diversity)
   directors: string[];
@@ -94,13 +96,16 @@ export type CandidateBucket =
   | 'hidden_gems'
   | 'personalized';
 
+// Feed bucket types (for algorithm)
+export type FeedBucket = 'exploit' | 'explore' | 'wildcard';
+
 // Feed item with debug info
 export interface FeedItem {
-  movie: MovieWithAvailability;
-  bucket: CandidateBucket;
+  movie: Movie;
+  bucket: FeedBucket;
   score: number;
   reason: string;
-  diversity: {
+  diversity?: {
     genreDistance: number;
     directorDistance: number;
     runtimeDistance: number;
