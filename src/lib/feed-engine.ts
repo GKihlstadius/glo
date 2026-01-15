@@ -40,7 +40,16 @@ export function updateTasteProfile(
   movie: Movie,
   action: 'like' | 'pass' | 'save'
 ): TasteProfile {
-  const updated = { ...profile };
+  const updated = {
+    ...profile,
+    genres: { ...(profile.genres ?? {}) },
+    moodWeights: { ...(profile.moodWeights ?? {}) },
+    eraWeights: { ...(profile.eraWeights ?? {}) },
+    directors: { ...(profile.directors ?? {}) },
+    cast: { ...(profile.cast ?? {}) },
+    recentGenres: [...(profile.recentGenres ?? [])],
+    recentDirectors: [...(profile.recentDirectors ?? [])],
+  };
   const weight = action === 'like' ? 0.15 : action === 'save' ? 0.25 : -0.08;
 
   // Update genre affinities
