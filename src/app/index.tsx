@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { X, Bookmark, Heart, Gamepad2, Sofa, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -13,8 +12,6 @@ import { useStore } from '@/lib/store';
 import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers } from '@/lib/movies';
 import { prefetchMovieImages } from '@/lib/image-cache';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -31,7 +28,6 @@ export default function HomeScreen() {
 
   const [currentItem, setCurrentItem] = useState<FeedItem | null>(null);
   const [nextItem, setNextItem] = useState<FeedItem | null>(null);
-  const [matched, setMatched] = useState<FeedItem | null>(null);
 
   // Feed engine reference
   const feedEngineRef = useRef<FeedEngine | null>(null);
@@ -83,7 +79,8 @@ export default function HomeScreen() {
     if (direction === 'right') {
       likeMovie(movie.id);
       feedEngineRef.current.recordSwipe(movie.id, 'like');
-      setMatched(currentItem);
+      // No overlay - instant flow, just like left swipe
+      if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else if (direction === 'left') {
       passMovie(movie.id);
       feedEngineRef.current.recordSwipe(movie.id, 'pass');
@@ -122,16 +119,6 @@ export default function HomeScreen() {
   const currentOffers = currentItem
     ? getStreamingOffers(currentItem.movie.id, country.code).slice(0, 4)
     : [];
-
-  // Get streaming offers for matched movie
-  const matchedOffers = matched
-    ? getStreamingOffers(matched.movie.id, country.code)
-    : [];
-
-  // Calculate card height - approximately 80% of usable screen
-  const usableHeight = Dimensions.get('window').height - insets.top - insets.bottom;
-  const bottomBarHeight = 140; // Action bar + secondary nav
-  const cardHeight = usableHeight - bottomBarHeight;
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
@@ -228,43 +215,6 @@ export default function HomeScreen() {
           <Settings size={20} color={COLORS.textMuted} />
         </Pressable>
       </View>
-
-      {/* Match overlay - minimal, shows streaming providers */}
-      {matched && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          className="absolute inset-0 items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
-        >
-          <Pressable className="absolute inset-0" onPress={() => setMatched(null)} />
-          <View className="items-center px-8">
-            <Text className="text-2xl font-medium mb-2" style={{ color: COLORS.text }}>
-              {matched.movie.title}
-            </Text>
-            <Text className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
-              {matched.movie.year}
-            </Text>
-
-            {/* Provider buttons - tap to open app */}
-            {matchedOffers.length > 0 && (
-              <View className="mb-8">
-                <ProviderRow offers={matchedOffers} size="medium" haptic={haptic} />
-              </View>
-            )}
-
-            <Pressable
-              onPress={() => setMatched(null)}
-              className="px-6 py-3"
-              style={{ backgroundColor: COLORS.bgCard, borderRadius: 8 }}
-            >
-              <Text className="text-sm" style={{ color: COLORS.text }}>
-                {lang === 'sv' ? 'Fortsätt' : 'Continue'}
-              </Text>
-            </Pressable>
-          </View>
-        </Animated.View>
-      )}
     </View>
   );
 }
