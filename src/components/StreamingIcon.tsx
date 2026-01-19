@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Svg, { Path, Rect, Circle, G, Defs, LinearGradient, Stop, ClipPath } from 'react-native-svg';
+import { View, StyleSheet, Image } from 'react-native';
+import Svg, { Path, Rect, Circle, G, Defs, LinearGradient, Stop, Text as SvgText } from 'react-native-svg';
 
 // ============================================================================
-// STREAMING ICONS — CIRCULAR APP ICONS
+// STREAMING ICONS — RECTANGULAR BRAND BUTTONS
 // ============================================================================
-// Clean, circular app-style icons matching iOS app icon design.
-// Pure brand representation with no boxes, borders, or containers.
+// Clean, rectangular icons matching the actual streaming service branding.
+// Rounded corners, proper brand colors, and accurate logos/wordmarks.
 // ============================================================================
 
-const SIZE = 44; // Icon diameter
+const WIDTH = 56;
+const HEIGHT = 32;
+const RADIUS = 6;
 
 // Provider ID normalization
 const ALIASES: Record<string, string> = {
@@ -23,6 +25,8 @@ const ALIASES: Record<string, string> = {
   appletvplus: 'apple',
   paramountplus: 'paramount',
   cbs: 'paramount',
+  youtubeTV: 'youtubetv',
+  youtube_tv: 'youtubetv',
 };
 
 function normalize(id: string): string {
@@ -32,7 +36,8 @@ function normalize(id: string): string {
 
 // Supported providers
 const SUPPORTED_PROVIDERS = new Set([
-  'netflix', 'prime', 'disney', 'hbo', 'apple', 'hulu', 'paramount', 'peacock'
+  'netflix', 'prime', 'disney', 'hbo', 'apple', 'hulu', 'paramount', 'peacock',
+  'viaplay', 'svtplay', 'mubi', 'crunchyroll', 'youtubetv'
 ]);
 
 export function hasVerifiedIcon(id: string): boolean {
@@ -43,113 +48,322 @@ export function filterVerifiedProviders(ids: string[]): string[] {
   return ids.filter(id => hasVerifiedIcon(id));
 }
 
-// Netflix - Red circle with N
+// Netflix - Black background with red NETFLIX text
 function NetflixIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#E50914" />
-      <Path
-        d="M30 20h12l14 40V20h12v60H56L42 40v40H30V20z"
-        fill="#FFFFFF"
-      />
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#000000" />
+      {/* NETFLIX wordmark */}
+      <SvgText
+        x="56"
+        y="40"
+        fill="#E50914"
+        fontSize="22"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        NETFLIX
+      </SvgText>
     </Svg>
   );
 }
 
-// Prime Video - Light blue circle with play arrow
+// Prime Video - Dark blue/navy with "prime video" text
 function PrimeIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#00A8E1" />
-      <Path
-        d="M35 25v50l40-25z"
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#00050D" />
+      {/* "prime video" text */}
+      <SvgText
+        x="56"
+        y="32"
         fill="#FFFFFF"
+        fontSize="14"
+        fontWeight="400"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        prime video
+      </SvgText>
+      {/* Blue underline swoosh */}
+      <Path
+        d="M25 44 Q56 52 87 44"
+        stroke="#00A8E1"
+        strokeWidth="3"
+        fill="none"
+        strokeLinecap="round"
       />
     </Svg>
   );
 }
 
-// Disney+ - Dark blue circle with Disney+ wordmark
+// Disney+ - Dark navy with Disney+ logo
 function DisneyIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#0E1A2D" />
-      <G fill="#FFFFFF">
-        {/* Simplified D+ logo */}
-        <Path d="M25 35h25c10 0 15 8 15 15s-5 15-15 15H35v-20h-10v-10zm10 10v20h15c5 0 8-4 8-10s-3-10-8-10H35z" />
-        <Path d="M68 40h8v20h-8V40zm4-8a5 5 0 110 10 5 5 0 010-10z" />
-        <Rect x="72" y="48" width="8" height="4" />
-      </G>
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Defs>
+        <LinearGradient id="disneyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#0E1A2D" />
+          <Stop offset="100%" stopColor="#0A1628" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="url(#disneyGrad)" />
+      {/* Disney+ wordmark */}
+      <SvgText
+        x="48"
+        y="40"
+        fill="#FFFFFF"
+        fontSize="18"
+        fontWeight="400"
+        fontStyle="italic"
+        textAnchor="middle"
+        fontFamily="serif"
+      >
+        Disney
+      </SvgText>
+      {/* Plus sign */}
+      <SvgText
+        x="88"
+        y="40"
+        fill="#FFFFFF"
+        fontSize="22"
+        fontWeight="300"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        +
+      </SvgText>
     </Svg>
   );
 }
 
-// HBO Max / Max - Purple circle with "max" text
+// HBO Max / Max - Purple gradient with "max" text
 function HBOIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#002BE7" />
-      <G fill="#FFFFFF">
-        <Path d="M15 40h10l5 12 5-12h10v20H37V48l-5 12h-4l-5-12v12H15V40z" />
-        <Path d="M50 40h10l8 20H60l-1.5-4H50l-1.5 4H40l10-20zm5 5l-3 8h6l-3-8z" />
-        <Path d="M70 40h10l4 8 4-8h10l-8 12 8 8H88l-4-6-4 6H70l8-8-8-12z" />
-      </G>
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Defs>
+        <LinearGradient id="maxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#1E0050" />
+          <Stop offset="50%" stopColor="#4A148C" />
+          <Stop offset="100%" stopColor="#0D47A1" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="url(#maxGrad)" />
+      {/* max wordmark */}
+      <SvgText
+        x="56"
+        y="42"
+        fill="#FFFFFF"
+        fontSize="26"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        max
+      </SvgText>
     </Svg>
   );
 }
 
-// Apple TV+ - Black circle with Apple logo
+// Apple TV+ - Black with Apple logo and tv+
 function AppleIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#000000" />
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#000000" />
+      {/* Apple logo (simplified) */}
       <Path
-        d="M50 22c-2 0-4 1-5 3 2 0 4-1 5-3zm10 15c-4-4-10-3-13 0-2 2-4 2-6 0-5-4-13-3-16 5-4 10 2 26 10 32 3 2 6 2 8 0 2-1 3-1 5 0 2 2 5 2 8 0 10-8 14-28 4-37z"
+        d="M30 20c-1.5 0-3 1-3.5 2.5 1 0 2-.5 2.5-1.5.5-.5.5-1 .5-1-.2 0-.3 0-.5 0z
+           M34 24c-2-2-5-1.5-6.5 0-1 1-1.5 2-1.5 3.5 0 4 3 10 5 10 1 0 1.5-.5 3-.5s2 .5 3 .5c2 0 4.5-6 5-10-.5 0-3-.5-3.5-3-.5-2 1-3.5 1-3.5-1-1-3-1-4 0-.5.5-1 .5-1.5.5s-1 0-1.5-.5z"
         fill="#FFFFFF"
+        transform="translate(0, 6) scale(0.8)"
       />
+      {/* tv+ text */}
+      <SvgText
+        x="70"
+        y="40"
+        fill="#FFFFFF"
+        fontSize="16"
+        fontWeight="500"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        tv+
+      </SvgText>
     </Svg>
   );
 }
 
-// Hulu - Green circle with "hulu" text
+// Hulu - Green background with white "hulu" text
 function HuluIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#1CE783" />
-      <G fill="#1A1A1A">
-        <Path d="M18 35v30h8V50c0-3 2-5 5-5s5 2 5 5v15h8V48c0-8-5-13-13-13-3 0-6 1-8 3v-3h-5z" />
-        <Path d="M48 45v20h8V50c0-3 2-5 5-5s5 2 5 5v15h8V48c0-8-5-13-13-13-3 0-6 1-8 3v-3h-5z" />
-      </G>
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#1CE783" />
+      {/* hulu wordmark */}
+      <SvgText
+        x="56"
+        y="42"
+        fill="#FFFFFF"
+        fontSize="28"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        hulu
+      </SvgText>
     </Svg>
   );
 }
 
-// Paramount+ - Blue circle with mountain peak
+// Paramount+ - Blue mountain peak logo
 function ParamountIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#0064FF" />
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#0064FF" />
+      {/* Mountain peak */}
       <Path
-        d="M50 18L20 75h60L50 18zm0 12l20 38H30l20-38z"
-        fill="#FFFFFF"
+        d="M56 12 L32 52 L80 52 Z"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="3"
       />
-      <Circle cx="50" cy="38" r="5" fill="#0064FF" />
+      {/* Inner mountain */}
+      <Path
+        d="M56 24 L42 48 L70 48 Z"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="2"
+      />
+      {/* Star at top */}
+      <Circle cx="56" cy="16" r="3" fill="#FFFFFF" />
     </Svg>
   );
 }
 
-// Peacock - Black circle with colorful peacock feathers
+// Peacock - Black with colorful peacock icon
 function PeacockIcon() {
   return (
-    <Svg width={SIZE} height={SIZE} viewBox="0 0 100 100">
-      <Circle cx="50" cy="50" r="50" fill="#000000" />
-      <G>
-        <Path d="M50 25c-3 0-5 15-5 25s2 25 5 25 5-15 5-25-2-25-5-25z" fill="#FFD700" />
-        <Path d="M35 30c-2 2-2 18 3 27s12 20 14 18 0-18-5-27-10-20-12-18z" fill="#00CED1" />
-        <Path d="M65 30c2 2 2 18-3 27s-12 20-14 18 0-18 5-27 10-20 12-18z" fill="#FF6B6B" />
-        <Path d="M25 40c-2 3 2 16 10 22s18 12 19 9-5-15-13-21-14-13-16-10z" fill="#9B59B6" />
-        <Path d="M75 40c2 3-2 16-10 22s-18 12-19 9 5-15 13-21 14-13 16-10z" fill="#3498DB" />
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#000000" />
+      {/* Peacock feathers */}
+      <G transform="translate(56, 32) scale(0.6)">
+        <Path d="M0 -20 C-5 -10 -5 10 0 20" fill="#FFD700" />
+        <Path d="M-15 -15 C-15 -5 -10 15 -5 18" fill="#00CED1" />
+        <Path d="M15 -15 C15 -5 10 15 5 18" fill="#FF6B6B" />
+        <Path d="M-25 -8 C-20 2 -12 18 -8 20" fill="#9B59B6" />
+        <Path d="M25 -8 C20 2 12 18 8 20" fill="#2ECC71" />
       </G>
+    </Svg>
+  );
+}
+
+// Viaplay - Red with "V" logo
+function ViaplayIcon() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#E4002B" />
+      <SvgText
+        x="56"
+        y="44"
+        fill="#FFFFFF"
+        fontSize="32"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        V
+      </SvgText>
+    </Svg>
+  );
+}
+
+// SVT Play - Green with SVT text
+function SVTIcon() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#1B5E20" />
+      <SvgText
+        x="56"
+        y="42"
+        fill="#FFFFFF"
+        fontSize="22"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        SVT
+      </SvgText>
+    </Svg>
+  );
+}
+
+// MUBI - Black with MUBI text
+function MubiIcon() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#000000" />
+      <SvgText
+        x="42"
+        y="42"
+        fill="#FFFFFF"
+        fontSize="22"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        MUBI
+      </SvgText>
+      {/* Four dots */}
+      <G transform="translate(78, 32)">
+        <Circle cx="0" cy="-6" r="3" fill="#FFFFFF" />
+        <Circle cx="0" cy="6" r="3" fill="#FFFFFF" />
+        <Circle cx="10" cy="-6" r="3" fill="#FFFFFF" />
+        <Circle cx="10" cy="6" r="3" fill="#FFFFFF" />
+      </G>
+    </Svg>
+  );
+}
+
+// Crunchyroll - Orange with logo
+function CrunchyrollIcon() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#F47521" />
+      <SvgText
+        x="56"
+        y="42"
+        fill="#FFFFFF"
+        fontSize="14"
+        fontWeight="bold"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        crunchyroll
+      </SvgText>
+    </Svg>
+  );
+}
+
+// YouTube TV - White/gray with red play button
+function YouTubeTVIcon() {
+  return (
+    <Svg width={WIDTH} height={HEIGHT} viewBox="0 0 112 64">
+      <Rect width="112" height="64" rx={RADIUS * 2} fill="#FFFFFF" />
+      {/* Red rounded rectangle with play button */}
+      <Rect x="20" y="18" width="36" height="28" rx="6" fill="#FF0000" />
+      <Path d="M40 26 L48 32 L40 38 Z" fill="#FFFFFF" />
+      {/* TV text */}
+      <SvgText
+        x="78"
+        y="40"
+        fill="#000000"
+        fontSize="16"
+        fontWeight="500"
+        textAnchor="middle"
+        fontFamily="sans-serif"
+      >
+        TV
+      </SvgText>
     </Svg>
   );
 }
@@ -178,6 +392,16 @@ export function StreamingIcon({ providerId }: StreamingIconProps) {
       return <ParamountIcon />;
     case 'peacock':
       return <PeacockIcon />;
+    case 'viaplay':
+      return <ViaplayIcon />;
+    case 'svtplay':
+      return <SVTIcon />;
+    case 'mubi':
+      return <MubiIcon />;
+    case 'crunchyroll':
+      return <CrunchyrollIcon />;
+    case 'youtubetv':
+      return <YouTubeTVIcon />;
     default:
       return null;
   }
@@ -205,6 +429,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
 });

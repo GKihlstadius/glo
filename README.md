@@ -29,12 +29,12 @@ Every movie shown can actually be watched in the country you live in. No US-only
 
 ### Streaming Providers (above actions)
 - Single horizontal row
-- **Icons from sprite sheet only** (public/image-2.png)
-- Raw brand logos, no containers/pills/backgrounds
-- Netflix, Prime, HBO Max, Hulu, Disney+, Apple TV+, MUBI, Crunchyroll, etc.
+- **Rectangular brand buttons** with rounded corners
+- Proper brand colors and wordmarks matching reference (public/image-1.png)
+- Netflix (black bg, red text), Prime Video (dark bg, white text + blue swoosh), Disney+ (navy gradient), HBO Max (purple gradient), Hulu (green bg), Apple TV+ (black bg), etc.
 - **Non-interactive**: Icons are passive availability signals only
 - Max 4 icons shown
-- If icon not in sprite sheet → not shown
+- Supported: netflix, prime, disney, hbo, apple, hulu, paramount, peacock, viaplay, svtplay, mubi, crunchyroll, youtubetv
 
 ### Bottom Action Bar
 Three actions (left to right):
