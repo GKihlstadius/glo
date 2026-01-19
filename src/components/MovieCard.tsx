@@ -100,13 +100,22 @@ export function MovieCard({
 
   // Load trailer data on mount (pre-fetch for readiness)
   useEffect(() => {
-    if (!trailersEnabled) return;
+    console.log('[TRAILER] Loading trailer for movie:', movie.id, movie.title, 'trailersEnabled:', trailersEnabled);
+    if (!trailersEnabled) {
+      console.log('[TRAILER] Trailers disabled, skipping');
+      return;
+    }
 
     getTrailer(movie).then((t) => {
+      console.log('[TRAILER] Got trailer data:', t?.videoId || 'null');
       setTrailer(t);
       // Mount player immediately after getting trailer info
-      if (t) setIsPlayerMounted(true);
-    }).catch(() => {
+      if (t) {
+        console.log('[TRAILER] Mounting player for video:', t.videoId);
+        setIsPlayerMounted(true);
+      }
+    }).catch((err) => {
+      console.log('[TRAILER] Error loading trailer:', err);
       setTrailer(null);
       setTrailerError(true);
     });
@@ -123,6 +132,8 @@ export function MovieCard({
     // - Player is mounted and ready
     // - Haven't already autoplayed for this card
     // - Not in Spelläge win mode (different trigger)
+    console.log('[TRAILER] Autoplay check - isActive:', isActive, 'trailersEnabled:', trailersEnabled, 'trailer:', !!trailer, 'trailerError:', trailerError, 'isPlayerMounted:', isPlayerMounted, 'hasAutoplayed:', hasAutoplayedRef.current);
+
     if (
       !isActive ||
       !trailersEnabled ||
@@ -132,12 +143,18 @@ export function MovieCard({
       hasAutoplayedRef.current ||
       showTrailerOnWin
     ) {
+      console.log('[TRAILER] Autoplay conditions not met, skipping');
       return;
     }
 
+    console.log('[TRAILER] Starting autoplay sequence for:', trailer.videoId);
+
     // Wait for player to be ready, then start autoplay delay
     const checkAndAutoplay = () => {
-      if (!playerRef.current?.isReady()) {
+      const isReady = playerRef.current?.isReady();
+      console.log('[TRAILER] Checking if player ready:', isReady);
+
+      if (!isReady) {
         // Player not ready, retry in 100ms
         autoplayTimeoutRef.current = setTimeout(checkAndAutoplay, 100);
         return;
@@ -145,12 +162,17 @@ export function MovieCard({
 
       // Calculate random delay (900-1400ms)
       const delay = AUTOPLAY_DELAY_MIN + Math.random() * (AUTOPLAY_DELAY_MAX - AUTOPLAY_DELAY_MIN);
+      console.log('[TRAILER] Player ready, scheduling autoplay with delay:', delay);
 
       // Schedule autoplay
       autoplayTimeoutRef.current = setTimeout(() => {
         // Final check before playing
-        if (!playerRef.current?.isReady() || hasAutoplayedRef.current) return;
+        if (!playerRef.current?.isReady() || hasAutoplayedRef.current) {
+          console.log('[TRAILER] Final check failed, not playing');
+          return;
+        }
 
+        console.log('[TRAILER] Playing trailer now!');
         // Start playback
         playerRef.current.play();
         hasAutoplayedRef.current = true;
