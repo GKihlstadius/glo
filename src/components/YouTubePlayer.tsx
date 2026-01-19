@@ -1,20 +1,56 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 
-// YouTube IFrame Player API implementation
-// Fixes Error 153 by using official API with proper configuration
+// ============================================================================
+// YOUTUBE PLAYER — STRICT PLAYBACK RULES
+// ============================================================================
+// Playback may ONLY start as a direct, synchronous result of a user gesture.
+//
+// PLAYER INITIALIZATION RULE:
+// - Player must be initialized once
+// - Kept mounted
+// - Reused across cards when possible
+// - Never mounted and played in the same frame
+// - Autoplay DISABLED at all times
+// - Muted playback explicitly enabled
+//
+// PLAYBACK SEQUENCE (STRICT):
+// 1. Player is mounted and idle
+// 2. User performs gesture
+// 3. Player receives play command synchronously
+// 4. Trailer plays
+//
+// FAILURE HANDLING:
+// - No retry loop
+// - No error UI
+// - No external redirect
+// - Poster remains visible
+// - Failure is silent
+//
+// GEO/EMBED BLOCK:
+// - Trailer is skipped
+// - Poster remains
+// - No placeholder
+// - Never attempt fallback
+// ============================================================================
 
 interface YouTubePlayerProps {
   videoId: string;
-  autoplay?: boolean;
-  muted?: boolean;
   startSeconds?: number;
   endSeconds?: number;
   loop?: boolean;
   onReady?: () => void;
-  onError?: (error: number) => void;
+  onError?: () => void;
   onStateChange?: (state: number) => void;
+  onPlaybackBlocked?: () => void;
+}
+
+export interface YouTubePlayerRef {
+  play: () => void;
+  pause: () => void;
+  stop: () => void;
+  isReady: () => boolean;
 }
 
 // YouTube Player States
@@ -27,24 +63,53 @@ export const YT_PLAYER_STATE = {
   CUED: 5,
 } as const;
 
-export function YouTubePlayer({
+// YouTube Error Codes that indicate geo/embed blocks
+const BLOCKED_ERROR_CODES = [
+  2,    // Invalid video ID
+  5,    // HTML5 player error
+  100,  // Video not found (often means private/deleted)
+  101,  // Embedding disabled
+  150,  // Embedding disabled (same as 101)
+];
+
+export const YouTubePlayer = forwardRef<YouTubePlayerRef, YouTubePlayerProps>(function YouTubePlayer({
   videoId,
-  autoplay = false,
-  muted = true,
   startSeconds = 0,
   endSeconds,
   loop = false,
   onReady,
   onError,
   onStateChange,
-}: YouTubePlayerProps) {
+  onPlaybackBlocked,
+}, ref) {
   const webViewRef = useRef<WebView>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const hasErrored = useRef(false);
 
-  // Generate the HTML with YouTube IFrame Player API
+  // Expose control methods via ref
+  useImperativeHandle(ref, () => ({
+    play: () => {
+      if (isPlayerReady && !hasErrored.current) {
+        webViewRef.current?.injectJavaScript('window.playVideo(); true;');
+      }
+    },
+    pause: () => {
+      if (isPlayerReady) {
+        webViewRef.current?.injectJavaScript('window.pauseVideo(); true;');
+      }
+    },
+    stop: () => {
+      if (isPlayerReady) {
+        webViewRef.current?.injectJavaScript('window.stopVideo(); true;');
+      }
+    },
+    isReady: () => isPlayerReady && !hasErrored.current,
+  }), [isPlayerReady]);
+
+  // Generate HTML - AUTOPLAY IS ALWAYS DISABLED
   const generateHTML = useCallback(() => {
     const playerVars = {
-      autoplay: autoplay ? 1 : 0,
+      autoplay: 0, // NEVER autoplay
       controls: 0,
       disablekb: 1,
       enablejsapi: 1,
@@ -56,6 +121,7 @@ export function YouTubePlayer({
       rel: 0,
       showinfo: 0,
       start: startSeconds,
+      mute: 1, // Always muted
       ...(endSeconds && { end: endSeconds }),
       ...(loop && { playlist: videoId }),
     };
@@ -76,7 +142,6 @@ export function YouTubePlayer({
   <div id="player"></div>
 
   <script>
-    // Load YouTube IFrame Player API
     var tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
     var firstScriptTag = document.getElementsByTagName('script')[0];
@@ -85,7 +150,6 @@ export function YouTubePlayer({
     var player;
     var playerReady = false;
 
-    // Called by YouTube API when ready
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         videoId: '${videoId}',
@@ -100,13 +164,9 @@ export function YouTubePlayer({
 
     function onPlayerReady(event) {
       playerReady = true;
-      ${muted ? 'event.target.mute();' : ''}
-      ${autoplay ? 'event.target.playVideo();' : ''}
-
-      // Notify React Native
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'ready'
-      }));
+      event.target.mute(); // Ensure muted
+      // DO NOT auto-play - wait for explicit command
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
     }
 
     function onPlayerStateChange(event) {
@@ -115,7 +175,7 @@ export function YouTubePlayer({
         state: event.data
       }));
 
-      // Handle loop manually if needed
+      // Handle loop manually
       ${loop ? `
       if (event.data === YT.PlayerState.ENDED) {
         player.seekTo(${startSeconds});
@@ -131,9 +191,12 @@ export function YouTubePlayer({
       }));
     }
 
-    // Commands from React Native
+    // Commands from React Native - synchronous
     window.playVideo = function() {
-      if (playerReady && player) player.playVideo();
+      if (playerReady && player) {
+        player.mute(); // Ensure muted before play
+        player.playVideo();
+      }
     };
 
     window.pauseVideo = function() {
@@ -143,23 +206,11 @@ export function YouTubePlayer({
     window.stopVideo = function() {
       if (playerReady && player) player.stopVideo();
     };
-
-    window.seekTo = function(seconds) {
-      if (playerReady && player) player.seekTo(seconds, true);
-    };
-
-    window.mute = function() {
-      if (playerReady && player) player.mute();
-    };
-
-    window.unMute = function() {
-      if (playerReady && player) player.unMute();
-    };
   </script>
 </body>
 </html>
     `;
-  }, [videoId, autoplay, muted, startSeconds, endSeconds, loop]);
+  }, [videoId, startSeconds, endSeconds, loop]);
 
   // Handle messages from WebView
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
@@ -168,45 +219,26 @@ export function YouTubePlayer({
 
       switch (data.type) {
         case 'ready':
-          setIsReady(true);
+          setIsPlayerReady(true);
           onReady?.();
           break;
         case 'stateChange':
           onStateChange?.(data.state);
           break;
         case 'error':
-          onError?.(data.error);
+          hasErrored.current = true;
+          // Check if this is a geo/embed block
+          if (BLOCKED_ERROR_CODES.includes(data.error)) {
+            onPlaybackBlocked?.();
+          }
+          // Silent error - no UI, no retry
+          onError?.();
           break;
       }
-    } catch (e) {
-      // Ignore parse errors
+    } catch {
+      // Ignore parse errors silently
     }
-  }, [onReady, onStateChange, onError]);
-
-  // Player control methods
-  const play = useCallback(() => {
-    webViewRef.current?.injectJavaScript('window.playVideo(); true;');
-  }, []);
-
-  const pause = useCallback(() => {
-    webViewRef.current?.injectJavaScript('window.pauseVideo(); true;');
-  }, []);
-
-  const stop = useCallback(() => {
-    webViewRef.current?.injectJavaScript('window.stopVideo(); true;');
-  }, []);
-
-  const seekTo = useCallback((seconds: number) => {
-    webViewRef.current?.injectJavaScript(`window.seekTo(${seconds}); true;`);
-  }, []);
-
-  const mute = useCallback(() => {
-    webViewRef.current?.injectJavaScript('window.mute(); true;');
-  }, []);
-
-  const unMute = useCallback(() => {
-    webViewRef.current?.injectJavaScript('window.unMute(); true;');
-  }, []);
+  }, [onReady, onStateChange, onError, onPlaybackBlocked]);
 
   return (
     <View style={styles.container}>
@@ -215,29 +247,36 @@ export function YouTubePlayer({
         source={{ html: generateHTML() }}
         style={styles.webView}
         onMessage={handleMessage}
-        // CRITICAL: iOS WebView configuration to prevent Error 153
+        // iOS WebView configuration for inline playback
         allowsInlineMediaPlayback={true}
         mediaPlaybackRequiresUserAction={false}
         allowsFullscreenVideo={false}
-        // Additional required settings
+        // Required settings
         javaScriptEnabled={true}
         domStorageEnabled={true}
         scrollEnabled={false}
         bounces={false}
-        // Prevent navigation away
+        // Prevent navigation away - silent fail
         onShouldStartLoadWithRequest={(request) => {
-          // Only allow YouTube embeds
           return request.url.includes('youtube.com') ||
                  request.url.includes('about:blank') ||
                  request.url.startsWith('data:');
         }}
-        // Performance optimizations
+        // Silent error handling
+        onError={() => {
+          hasErrored.current = true;
+          onError?.();
+        }}
+        onHttpError={() => {
+          hasErrored.current = true;
+          onError?.();
+        }}
         cacheEnabled={true}
         incognito={false}
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
