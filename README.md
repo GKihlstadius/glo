@@ -11,7 +11,7 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - **Bottom-driven interaction**: All controls at bottom, thumb-reachable.
 - **Spotify-level calm**: Few choices, no explanation needed, content first.
 - **No AI smell**: Real TMDB posters, quality-gated content, no generated art.
-- **Trailers as rewards**: Hold-to-preview inline trailers, never leave the app.
+- **Netflix-style trailers**: Autoplay inline trailers after card settles, muted, instant stop on swipe.
 
 ## Screen Structure
 
@@ -25,13 +25,14 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - Title + year only, subtle at bottom
 - No metadata, ratings, or debug overlays
 - Gesture-responsive (swipe left/right/up)
-- **Hold-to-preview**: Long press (450ms) to play inline trailer
+- **Netflix-style autoplay**: Trailers autoplay after 900-1400ms settle delay, muted, stop instantly on swipe
 
 ### Streaming Providers (above actions)
 - Single horizontal row
-- **Icons from sprite sheet only** (public/image-1.png)
+- **Icons from sprite sheet only** (public/image-2.png)
+- Raw brand logos, no containers/pills/backgrounds
 - Netflix, Prime, HBO Max, Hulu, Disney+, Apple TV+, MUBI, Crunchyroll, etc.
-- Tap opens exact movie in provider app (deep link)
+- **Non-interactive**: Icons are passive availability signals only
 - Max 4 icons shown
 - If icon not in sprite sheet → not shown
 
@@ -72,19 +73,21 @@ Below action bar, always visible:
 - Country-accurate streaming availability
 
 ### Trailer System
-- **Hold-to-preview**: Long press (450ms) on poster to play inline trailer
-- **YouTube IFrame Player API**: Fixes Error 153, proper inline playback
+- **Netflix-style autoplay**: Trailers autoplay 900-1400ms after card settles
 - **Muted by default**: Trailers play silently, never interrupt
-- **10-15 second loops**: Short, cinematic previews
+- **Instant stop on swipe**: Playback stops immediately when user starts swiping
+- **10-15 second previews**: Short, cinematic loops
 - **Never leaves app**: WebView with IFrame API, no YouTube redirect
 - **Official sources only**: Strict query strategy for studio/distributor trailers
+- **Delivery gates**: Both icon and trailer systems must pass stability checks
 
-### Streaming Provider Integration
-- **Sprite sheet icons only**: All icons from public/image-1.png
+### Streaming Provider Icons
+- **Sprite sheet icons only**: All icons from public/image-2.png (9x3 grid)
+- **Raw brand images**: No containers, pills, backgrounds, or overlays
+- **Non-interactive**: Icons are passive availability signals, not buttons
+- **Brand fidelity**: Original colors, shapes, aspect ratios preserved
 - **Available providers**: Netflix, Prime Video, HBO Max, Hulu, Disney+, Apple TV+, CBS, AMC, Showtime, MUBI, Crunchyroll, Rakuten TV, Acorn TV, Plex, and more
-- **Deep linking**: Opens streaming app directly to the movie
-- **Fallback chain**: Universal link → URL scheme → Web browser
-- **Provider sorting**: Stream offers first, then rent, then buy
+- **Regional accuracy**: Only show icons if movie is confirmed available in user's region
 
 ### Image Pipeline
 - Official TMDB movie posters (w500 = 500px wide)
@@ -156,6 +159,31 @@ src/
 ```
 
 ## Trailer System Details
+
+### Netflix-Style Autoplay
+- Card becomes active (top of stack)
+- Wait 900-1400ms after card is fully settled
+- Autoplay trailer inline, muted
+- Trailer overlays poster subtly
+- Playback stops IMMEDIATELY on any swipe gesture
+- No delays, no audio bleed
+
+### Delivery Gates (Non-Negotiable)
+Trailers are ONLY enabled when both gates pass:
+
+**Gate A — Icon Correctness**
+- Raw brand logos
+- No wrappers/pills/backgrounds
+- Non-interactive
+- Matches reference exactly
+
+**Gate B — Trailer Stability**
+- Autoplay works reliably
+- No blink-start-stop
+- No silent failures
+- Playback always stops instantly on swipe
+
+If either gate fails → trailers disabled, poster-only experience
 
 ### YouTube IFrame Player API
 - Uses official YouTube IFrame Player API for reliable playback
