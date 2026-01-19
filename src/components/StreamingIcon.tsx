@@ -29,7 +29,7 @@ import { Image } from 'expo-image';
 // ============================================================================
 
 // The sprite sheet is organized in 3 rows, 9 columns
-// Source: public/image-1.png (user-provided asset)
+// Source: public/image-2.png (user-provided asset)
 // Row 1: Netflix, YouTube TV, Prime Video, HBO Max, Hulu, Disney+, Apple TV+, CBS, AMC
 // Row 2: Crackle, LiveXLive, Showtime, Sky Go, Spotify, Google Play Music, Apple Music, TuneIn, SiriusXM
 // Row 3: Acorn TV, Crunchyroll, Rakuten TV, MUBI, Deezer, Fubo TV, PLEX, Sling, Philo
@@ -236,7 +236,7 @@ export function StreamingIcon({
       {/* Clip container - overflow hidden to extract from sprite */}
       <View style={{ width: iconWidth, height: iconHeight, overflow: 'hidden' }}>
         <Image
-          source={require('../../public/image-1.png')}
+          source={require('../../public/image-2.png')}
           style={{
             // Scale sprite so each icon cell matches our target size
             width: iconWidth * SPRITE_COLS,
