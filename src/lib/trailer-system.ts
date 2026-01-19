@@ -1,10 +1,25 @@
 // ============================================================================
-// TRAILER SYSTEM — NETFLIX-STYLE AUTOPLAY WITH DELIVERY GATES
+// TRAILER SYSTEM — COMPLETELY DISABLED
 // ============================================================================
-// SOURCE-AGNOSTIC: May use ANY video source (MP4, HLS, YouTube, Vimeo, etc.)
-// AUTOPLAY: Plays inline, muted, after 900-1400ms delay when card settles
-// STOP: Immediately on swipe/navigation
-// FALLBACK: Silent fail → poster only
+// TRAILERS ARE DISABLED until the new architecture passes validation.
+//
+// REASON: YouTube playback is unreliable for inline autoplay:
+// - Embeds don't allow reliable muted autoplay
+// - iOS blocks playback
+// - WebViews unload on re-render
+// - Players are mounted/unmounted per card
+// - Swipe interrupts lifecycle
+// - Error 153 = player config + policy mismatch
+//
+// CURRENT STATE: Posters only. No autoplay. No long-press. No inline video.
+//
+// FUTURE: Rebuild with:
+// - ONE persistent video player per feed
+// - Never mount/unmount per card
+// - Only swap the video source
+// - Player lives ABOVE the card stack
+// - Cards do not own players
+// - SOURCE-AGNOSTIC: MP4, HLS, CDN clips, Apple previews, Vimeo, etc.
 // ============================================================================
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -164,23 +179,21 @@ export function getGateStatus(): GateStatus {
   };
 }
 
-// For initial app state - assume gates pass until proven otherwise
-// This allows trailers to work immediately while tracking stability
-let gatesAssumedPassing = true;
+// For initial app state - TRAILERS ARE DISABLED
+// Set to false to completely disable all trailer functionality
+let gatesAssumedPassing = false; // DISABLED - was true
 
 export function assumeGatesPassing(): void {
-  gatesAssumedPassing = true;
-  gateMetrics.consecutiveIconSuccess = GATE_THRESHOLD;
-  gateMetrics.consecutiveAutoplaySuccess = GATE_THRESHOLD;
-  gateMetrics.consecutiveSwipeStops = GATE_THRESHOLD;
+  // DISABLED - trailers are off until rebuilt
+  gatesAssumedPassing = false;
+  gateMetrics.consecutiveIconSuccess = 0;
+  gateMetrics.consecutiveAutoplaySuccess = 0;
+  gateMetrics.consecutiveSwipeStops = 0;
 }
 
 export function areTrailersEnabled(): boolean {
-  // If we've never had a failure, assume passing
-  if (gatesAssumedPassing) {
-    return true;
-  }
-  return getGateStatus().trailersEnabled;
+  // DISABLED - always return false until trailer system is rebuilt
+  return false;
 }
 
 // Call this when any gate check fails

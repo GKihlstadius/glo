@@ -18,7 +18,7 @@ import { Heart, X, Bookmark, Star } from 'lucide-react-native';
 import { Movie } from '@/lib/types';
 import { SWIPE, COLORS } from '@/lib/constants';
 import { getStreamingOffers } from '@/lib/movies';
-import { ProviderRow } from './ProviderButton';
+import { StreamingRow } from './StreamingIcon';
 import { PLACEHOLDER_BLUR_HASH, IMAGE_TRANSITION } from '@/lib/image-cache';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -208,10 +208,10 @@ export function SwipeCard({
             </Text>
             <Text style={styles.yearText}>{movie.year}</Text>
 
-            {/* Provider icons - single row near bottom, max 4 */}
+            {/* Streaming icons - non-interactive brand logos */}
             {offers.length > 0 && (
               <View style={styles.providersContainer}>
-                <ProviderRow offers={offers} size="small" haptic={haptic} maxVisible={4} />
+                <StreamingRow providerIds={offers.map(o => o.providerId)} maxVisible={4} />
               </View>
             )}
           </View>

@@ -11,7 +11,7 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - **Bottom-driven interaction**: All controls at bottom, thumb-reachable.
 - **Spotify-level calm**: Few choices, no explanation needed, content first.
 - **No AI smell**: Real TMDB posters, quality-gated content, no generated art.
-- **Netflix-style trailers**: Autoplay inline trailers after card settles, muted, instant stop on swipe.
+- **Poster-first**: Beautiful movie posters are the primary experience. Trailers disabled until rebuilt.
 
 ## Screen Structure
 
@@ -25,7 +25,7 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - Title + year only, subtle at bottom
 - No metadata, ratings, or debug overlays
 - Gesture-responsive (swipe left/right/up)
-- **Netflix-style autoplay**: Trailers autoplay after 900-1400ms settle delay, muted, stop instantly on swipe
+- **Poster-only**: Trailers disabled until system is rebuilt
 
 ### Streaming Providers (above actions)
 - Single horizontal row
@@ -72,14 +72,22 @@ Below action bar, always visible:
 - Title + year only on cards
 - Country-accurate streaming availability
 
-### Trailer System
-- **Netflix-style autoplay**: Trailers autoplay 900-1400ms after card settles
-- **Muted by default**: Trailers play silently, never interrupt
-- **Instant stop on swipe**: Playback stops immediately when user starts swiping
-- **10-15 second previews**: Short, cinematic loops
-- **Never leaves app**: WebView with IFrame API, no YouTube redirect
-- **Official sources only**: Strict query strategy for studio/distributor trailers
-- **Delivery gates**: Both icon and trailer systems must pass stability checks
+### Trailer System (DISABLED)
+Trailers are completely disabled until the system is rebuilt with proper architecture.
+
+**Why disabled:**
+- YouTube embeds don't allow reliable muted autoplay
+- iOS blocks playback in many scenarios
+- WebViews unload on re-render causing instant stops
+- Error 153 = player config + policy mismatch
+
+**Current state:** Posters only. No autoplay. No long-press. No inline video.
+
+**Future rebuild will use:**
+- ONE persistent video player per feed (not per card)
+- Source-agnostic: MP4, HLS, CDN clips, Apple previews, Vimeo
+- Player lives ABOVE card stack, only source swaps
+- Validation gate: 50 consecutive autoplay successes required
 
 ### Streaming Provider Icons
 - **Sprite sheet icons only**: All icons from public/image-2.png (9x3 grid)
@@ -158,17 +166,26 @@ src/
     └── cn.ts            # ClassName utility
 ```
 
-## Trailer System Details
+## Trailer System Details (DISABLED)
 
-### Netflix-Style Autoplay
-- Card becomes active (top of stack)
-- Wait 900-1400ms after card is fully settled
-- Autoplay trailer inline, muted
-- Trailer overlays poster subtly
-- Playback stops IMMEDIATELY on any swipe gesture
-- No delays, no audio bleed
+Trailers are currently disabled. This section documents the planned architecture for when they are re-enabled.
 
-### Delivery Gates (Non-Negotiable)
+### Future Architecture
+- ONE persistent video player per feed
+- Never mount/unmount per card
+- Only swap video source
+- Player lives ABOVE card stack
+- Cards do not own players
+- Source-agnostic: MP4, HLS, CDN clips, Apple previews, Vimeo, etc.
+
+### Re-enable Criteria (ALL must pass)
+- 50 consecutive autoplay attempts succeed
+- 0 instant stops
+- 0 silent failures
+- 0 blocking swipes
+- 0 UI regressions
+
+### Delivery Gates (Future)
 Trailers are ONLY enabled when both gates pass:
 
 **Gate A — Icon Correctness**

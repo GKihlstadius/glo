@@ -34,25 +34,10 @@ import {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ============================================================================
-// TRAILER PLAYBACK RULES — NETFLIX-STYLE AUTOPLAY
+// TRAILER PLAYBACK — DISABLED
 // ============================================================================
-// AUTOPLAY BEHAVIOR:
-// 1. Card becomes active (top of stack)
-// 2. Wait 900-1400ms after card is fully settled
-// 3. Autoplay trailer inline, muted
-// 4. Trailer overlays poster subtly
-//
-// STOP RULE (ABSOLUTE):
-// - Swipe begins → trailer stops IMMEDIATELY
-// - Card loses focus → stop
-// - Feed changes → stop
-// - Navigation occurs → stop
-// - No delays. No audio bleed. No exceptions.
-//
-// FALLBACK:
-// - If trailer fails → poster remains
-// - Failure is invisible to user
-// - No retry during session for failed sources
+// Trailers are completely disabled until the system is rebuilt.
+// Posters only. No autoplay. No inline video.
 // ============================================================================
 
 // Autoplay delay range per spec
