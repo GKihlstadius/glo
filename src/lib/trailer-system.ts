@@ -192,8 +192,8 @@ export function assumeGatesPassing(): void {
 }
 
 export function areTrailersEnabled(): boolean {
-  // DISABLED - always return false until trailer system is rebuilt
-  return false;
+  // ENABLED - trailer system is active
+  return true;
 }
 
 // Call this when any gate check fails

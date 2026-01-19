@@ -245,12 +245,21 @@ const KNOWN_TRAILERS: Record<string, TrailerInfo> = {
   // Top rated movies
   '1': { videoId: '6hB3S9bIaco', title: 'The Shawshank Redemption Official Trailer', channelName: 'Warner Bros.', duration: 142, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '2': { videoId: 'UaVTIH8mujA', title: 'The Godfather Official Trailer', channelName: 'Paramount Pictures', duration: 168, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '3': { videoId: 'qJr92K_hKl0', title: 'The Godfather Part II Official Trailer', channelName: 'Paramount Pictures', duration: 147, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '4': { videoId: 'gG22XNhtnoY', title: "Schindler's List Official Trailer", channelName: 'Universal Pictures', duration: 135, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '5': { videoId: '_13J_9B5jEk', title: '12 Angry Men Official Trailer', channelName: 'Criterion', duration: 108, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '6': { videoId: 'EXeTwQWrcwY', title: 'The Dark Knight Official Trailer', channelName: 'Warner Bros.', duration: 150, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '7': { videoId: 's7EdQ4FqbhY', title: 'Pulp Fiction Official Trailer', channelName: 'Miramax', duration: 152, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '8': { videoId: 'qtRKdVHc-cE', title: 'Fight Club Official Trailer', channelName: '20th Century Studios', duration: 135, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '9': { videoId: 'bLvqoHBptjg', title: 'Forrest Gump Official Trailer', channelName: 'Paramount Pictures', duration: 147, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '10': { videoId: 'YoHD9XEInc0', title: 'Inception Official Trailer', channelName: 'Warner Bros.', duration: 148, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '11': { videoId: 'uYPbbksJxIg', title: 'Oppenheimer Official Trailer', channelName: 'Universal Pictures', duration: 180, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '12': { videoId: 'pBk4NYhWNMM', title: 'Barbie Official Trailer', channelName: 'Warner Bros.', duration: 138, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '13': { videoId: 'cqGjhVJWtEg', title: 'Spider-Man: Across the Spider-Verse Official Trailer', channelName: 'Sony Pictures', duration: 156, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '14': { videoId: 'hXzcyx9V0xw', title: 'Elemental Official Trailer', channelName: 'Pixar', duration: 125, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '15': { videoId: 'TnGl01FkMMo', title: 'The Super Mario Bros. Movie Official Trailer', channelName: 'Universal Pictures', duration: 138, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '16': { videoId: 'Ki4haFrqSrw', title: 'The Green Mile Official Trailer', channelName: 'Warner Bros.', duration: 145, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '17': { videoId: 'WCN5JJY_wiA', title: 'The Good, the Bad and the Ugly Official Trailer', channelName: 'MGM', duration: 165, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '26': { videoId: '8g18jFHCLXk', title: 'Dune Official Trailer', channelName: 'Warner Bros.', duration: 195, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '27': { videoId: 'Way9Dexny3w', title: 'Dune: Part Two Official Trailer', channelName: 'Warner Bros.', duration: 180, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '29': { videoId: 'zSWdZVtXT7E', title: 'Interstellar Official Trailer', channelName: 'Paramount Pictures', duration: 169, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
@@ -262,6 +271,10 @@ const KNOWN_TRAILERS: Record<string, TrailerInfo> = {
   '21': { videoId: 'ByXuk9QqQkk', title: 'Spirited Away Official Trailer', channelName: 'Studio Ghibli', duration: 120, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
   '37': { videoId: 'xU47nhruN-Q', title: 'Your Name Official Trailer', channelName: 'Funimation', duration: 106, sourcePriority: 'distributor', language: 'en', cachedAt: Date.now(), region: 'US' },
   '52': { videoId: 'g4Hbz2jLxvQ', title: 'Spider-Man: Into the Spider-Verse Official Trailer', channelName: 'Sony Pictures', duration: 150, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  // More popular films
+  '18': { videoId: 'Div0iP65aZo', title: 'Se7en Official Trailer', channelName: 'New Line Cinema', duration: 135, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '19': { videoId: 'vKQi3bBA1y8', title: 'The Silence of the Lambs Official Trailer', channelName: 'MGM', duration: 145, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
+  '20': { videoId: 'sY1S34973zA', title: 'The Matrix Official Trailer', channelName: 'Warner Bros.', duration: 150, sourcePriority: 'official', language: 'en', cachedAt: Date.now(), region: 'US' },
 };
 
 // Get trailer for movie (with caching)
