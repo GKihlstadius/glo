@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { X, Bookmark, Heart, Gamepad2, Sofa, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { MovieCard } from '@/components/MovieCard';
-import { ProviderRow } from '@/components/ProviderButton';
+import { StreamingRow } from '@/components/StreamingIcon';
 import { FeedItem } from '@/lib/types';
 import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
@@ -24,7 +24,6 @@ export default function HomeScreen() {
   const likeMovie = useStore((s) => s.likeMovie);
   const passMovie = useStore((s) => s.passMovie);
   const saveMovie = useStore((s) => s.saveMovie);
-  const lang = country.language;
 
   const [currentItem, setCurrentItem] = useState<FeedItem | null>(null);
   const [nextItem, setNextItem] = useState<FeedItem | null>(null);
@@ -79,7 +78,6 @@ export default function HomeScreen() {
     if (direction === 'right') {
       likeMovie(movie.id);
       feedEngineRef.current.recordSwipe(movie.id, 'like');
-      // No overlay - instant flow, just like left swipe
       if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else if (direction === 'left') {
       passMovie(movie.id);
@@ -90,7 +88,7 @@ export default function HomeScreen() {
       if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    // Advance queue
+    // Advance queue - instant, no pause
     setCurrentItem(nextItem);
     const newNext = feedEngineRef.current.getNext();
     setNextItem(newNext);
@@ -115,22 +113,24 @@ export default function HomeScreen() {
     handleSwipe('right');
   }, [haptic, handleSwipe]);
 
-  // Get current movie's streaming offers
-  const currentOffers = currentItem
-    ? getStreamingOffers(currentItem.movie.id, country.code).slice(0, 4)
+  // Get current movie's streaming provider IDs
+  const currentProviderIds = currentItem
+    ? getStreamingOffers(currentItem.movie.id, country.code)
+        .slice(0, 4)
+        .map(offer => offer.providerId)
     : [];
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
-      {/* TOP AREA: Completely empty - only OS status bar */}
+      {/* TOP AREA: Empty - nothing appears at the top per spec */}
       <View style={{ height: insets.top }} />
 
-      {/* MAIN CONTENT: Full-bleed movie poster */}
-      <View style={{ flex: 1, marginHorizontal: 0 }}>
+      {/* MAIN CONTENT: Full-bleed movie poster - the HERO */}
+      <View style={styles.cardArea}>
         {!currentItem ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-base" style={{ color: COLORS.textMuted }}>
-              {lang === 'sv' ? 'Laddar...' : 'Loading...'}
+              Loading...
             </Text>
           </View>
         ) : (
@@ -143,99 +143,113 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* STREAMING PROVIDERS: Single row above action bar */}
-      {currentOffers.length > 0 && (
-        <View style={styles.providerSection}>
-          <ProviderRow offers={currentOffers} size="medium" haptic={haptic} maxVisible={4} />
+      {/* BOTTOM SECTION: All actions live at the bottom */}
+      <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 8 }]}>
+        {/* Streaming providers - single row, max 4, original icons only */}
+        {currentProviderIds.length > 0 && (
+          <View style={styles.providerSection}>
+            <StreamingRow
+              providerIds={currentProviderIds}
+              movieId={currentItem?.movie.id}
+              size="medium"
+              haptic={haptic}
+              maxVisible={4}
+            />
+          </View>
+        )}
+
+        {/* Primary action bar: Pass / Save / Like */}
+        <View style={styles.actionBar}>
+          <Pressable
+            onPress={handlePass}
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.passButton,
+              pressed && styles.actionButtonPressed,
+            ]}
+          >
+            <X size={28} color="#fff" strokeWidth={2.5} />
+          </Pressable>
+
+          <Pressable
+            onPress={handleSave}
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.saveButton,
+              pressed && styles.actionButtonPressed,
+            ]}
+          >
+            <Bookmark size={24} color="#fff" fill="#fff" />
+          </Pressable>
+
+          <Pressable
+            onPress={handleLike}
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.likeButton,
+              pressed && styles.actionButtonPressed,
+            ]}
+          >
+            <Heart size={28} color="#fff" fill="#fff" />
+          </Pressable>
         </View>
-      )}
 
-      {/* BOTTOM ACTION BAR: Pass / Save / Like */}
-      <View style={[styles.actionBar, { paddingBottom: 8 }]}>
-        {/* Pass */}
-        <Pressable
-          onPress={handlePass}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.passButton,
-            pressed && styles.actionButtonPressed,
-          ]}
-        >
-          <X size={28} color="#fff" strokeWidth={2.5} />
-        </Pressable>
+        {/* Secondary navigation: Spelläge / Soffläge / Settings */}
+        <View style={styles.secondaryNav}>
+          <Pressable
+            onPress={() => router.push('/spellage')}
+            style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+            hitSlop={12}
+          >
+            <Gamepad2 size={20} color={COLORS.textMuted} />
+          </Pressable>
 
-        {/* Save */}
-        <Pressable
-          onPress={handleSave}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.saveButton,
-            pressed && styles.actionButtonPressed,
-          ]}
-        >
-          <Bookmark size={26} color="#fff" fill="#fff" />
-        </Pressable>
+          <Pressable
+            onPress={() => router.push('/couch')}
+            style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+            hitSlop={12}
+          >
+            <Sofa size={20} color={COLORS.textMuted} />
+          </Pressable>
 
-        {/* Like */}
-        <Pressable
-          onPress={handleLike}
-          style={({ pressed }) => [
-            styles.actionButton,
-            styles.likeButton,
-            pressed && styles.actionButtonPressed,
-          ]}
-        >
-          <Heart size={28} color="#fff" fill="#fff" />
-        </Pressable>
-      </View>
-
-      {/* SECONDARY NAVIGATION: Spelläge / Couch / Settings */}
-      <View style={[styles.secondaryNav, { paddingBottom: insets.bottom + 8 }]}>
-        <Pressable
-          onPress={() => router.push('/spellage')}
-          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
-          hitSlop={12}
-        >
-          <Gamepad2 size={20} color={COLORS.textMuted} />
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.push('/couch')}
-          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
-          hitSlop={12}
-        >
-          <Sofa size={20} color={COLORS.textMuted} />
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.push('/settings')}
-          style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
-          hitSlop={12}
-        >
-          <Settings size={20} color={COLORS.textMuted} />
-        </Pressable>
+          <Pressable
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
+            hitSlop={12}
+          >
+            <Settings size={20} color={COLORS.textMuted} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cardArea: {
+    flex: 1,
+    marginHorizontal: 8,
+    marginTop: 4,
+  },
+  bottomSection: {
+    paddingTop: 8,
+  },
   providerSection: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     alignItems: 'center',
+    paddingVertical: 10,
   },
   actionBar: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    gap: 24,
+    paddingVertical: 8,
+    gap: 28,
   },
   actionButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -255,7 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 10,
     gap: 48,
   },
   navButton: {

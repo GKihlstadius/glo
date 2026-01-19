@@ -11,6 +11,7 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - **Bottom-driven interaction**: All controls at bottom, thumb-reachable.
 - **Spotify-level calm**: Few choices, no explanation needed, content first.
 - **No AI smell**: Real TMDB posters, quality-gated content, no generated art.
+- **Trailers as rewards**: Hold-to-preview inline trailers, never leave the app.
 
 ## Screen Structure
 
@@ -24,12 +25,15 @@ Every movie shown can actually be watched in the country you live in. No US-only
 - Title + year only, subtle at bottom
 - No metadata, ratings, or debug overlays
 - Gesture-responsive (swipe left/right/up)
+- **Hold-to-preview**: Long press (450ms) to play inline trailer
 
 ### Streaming Providers (above actions)
 - Single horizontal row
-- Official brand icons: Netflix, Prime, Disney+, Max, Apple TV+, Viaplay
+- **Official icons only** (from verified CDN sources)
+- Netflix, Prime, Disney+, Max, Apple TV+, Hulu, MUBI, Criterion
 - Tap opens exact movie in provider app (deep link)
 - Max 4 icons shown
+- If icon not verified → not shown
 
 ### Bottom Action Bar
 Three actions (left to right):
@@ -41,7 +45,7 @@ Icons only. Haptic feedback on press.
 ### Secondary Navigation
 Below action bar, always visible:
 - Spelläge (game mode)
-- Couch Mode
+- Soffläge (couch mode)
 - Settings
 
 ## Data Quality Rules (NON-NEGOTIABLE)
@@ -68,10 +72,18 @@ Below action bar, always visible:
 - Title + year only on cards
 - Country-accurate streaming availability
 
+### Trailer System
+- **Hold-to-preview**: Long press (450ms) on poster to play inline trailer
+- **Muted by default**: Trailers play silently, never interrupt
+- **10-15 second loops**: Short, cinematic previews
+- **Never leaves app**: Inline WebView playback, no YouTube redirect
+- **Official sources only**: Strict query strategy for studio/distributor trailers
+- **Regional caching**: Trailers cached per movie + region + language
+
 ### Streaming Provider Integration
-- **Real provider icons**: Netflix, Prime, Disney+, Max, Apple TV+, Viaplay, SVT, Hulu
+- **Verified icons only**: Netflix, Prime, Disney+, Max, Apple TV+, Hulu, MUBI, Criterion
 - **Deep linking**: Opens streaming app directly to the movie
-- **Fallback chain**: Universal link -> URL scheme -> Web browser
+- **Fallback chain**: Universal link → URL scheme → Web browser
 - **Provider sorting**: Stream offers first, then rent, then buy
 
 ### Image Pipeline
@@ -81,18 +93,27 @@ Below action bar, always visible:
 - Placeholder blur hash during loading
 - Pure black background (#000000)
 
-### Couch Mode
+### Soffläge (Couch Mode)
 - Create a session and share via:
   - Share link (native share sheet)
   - Copy link (for messaging)
   - Show code (for someone next to you)
 - Join with a 6-character code
 - Secure tokens with 2-hour expiry
+- Match confirmation with brief trailer preview
 
-### Spelläge / Game Mode
+### Spelläge (Game Mode)
 - Pick a mood: Calm, Fun, Intense, Short
 - Filtered movie selection based on mood
+- **Winner reveal**: After 5 likes, a random winner is dramatically revealed
+- **Cinematic trailer**: Winner auto-plays trailer inline
 - Perfect for date nights or group decisions
+
+### Saved Movies Library
+- Grid view of all saved movies
+- Tap to view details with streaming providers
+- Quick remove with trash icon
+- Same posters as main feed
 
 ## Tech Stack
 - Expo SDK 53 with React Native 0.76.7
@@ -101,7 +122,7 @@ Below action bar, always visible:
 - React Native Gesture Handler for swipes
 - Zustand for state management with persistence
 - expo-image for optimized image loading
-- react-native-svg for provider icons
+- react-native-webview for inline trailer playback
 
 ## File Structure
 ```
@@ -110,14 +131,15 @@ src/
 │   ├── _layout.tsx      # Root layout with navigation
 │   ├── index.tsx        # Home screen (Quick Swipe)
 │   ├── settings.tsx     # Settings modal
-│   ├── saved.tsx        # Saved movies grid
-│   ├── couch.tsx        # Couch Mode setup with invite sheet
-│   ├── spellage.tsx     # Game Mode mood picker
-│   └── session.tsx      # Active swiping session
+│   ├── saved.tsx        # Saved movies grid with detail modal
+│   ├── couch.tsx        # Soffläge setup with invite sheet
+│   ├── spellage.tsx     # Spelläge mood picker
+│   └── session.tsx      # Active swiping session with winner reveal
 ├── components/
-│   ├── MovieCard.tsx    # Main movie card with swipe gestures
-│   ├── ProviderButton.tsx # Streaming provider row
-│   ├── ProviderIcon.tsx # SVG provider icons
+│   ├── MovieCard.tsx    # Main card with swipe + hold-to-preview
+│   ├── StreamingIcon.tsx # Verified streaming icons + deep links
+│   ├── ProviderButton.tsx # Legacy provider row
+│   ├── ProviderIcon.tsx # Legacy SVG icons
 │   └── InviteSheet.tsx  # Room sharing sheet
 └── lib/
     ├── types.ts         # TypeScript interfaces
@@ -126,12 +148,31 @@ src/
     ├── movies.ts        # Movie data with availability
     ├── feed-engine.ts   # Recommendation algorithm
     ├── candidate-store.ts # Quality-filtered buckets
+    ├── trailer.ts       # YouTube trailer system + cache
     ├── streaming.ts     # Provider deep linking
     ├── image-cache.ts   # Image prefetch utilities
     ├── tmdb.ts          # TMDB API types and helpers
     ├── room.ts          # Room invite utilities
     └── cn.ts            # ClassName utility
 ```
+
+## Trailer System Details
+
+### YouTube Query Strategy (Priority Order)
+1. **Official/Studio** (top priority): `"{title} {year} official trailer"`
+2. **Distributor/Platform**: `"{title} trailer {year}"`
+3. **Trusted channels** (last resort): Known trailer aggregators
+
+### Validation Rules
+- Duration: 45-240 seconds
+- Must contain "trailer" or "teaser" in title
+- Blacklist: reactions, breakdowns, fan edits, scene clips
+- Verified channels: Warner Bros, Universal, Sony, Disney, etc.
+
+### Cache System
+- Key: `trailer_{movieId}_{region}_{language}`
+- TTL: 7 days
+- Fallback: Poster-only experience is acceptable
 
 ## Feed Algorithm
 
@@ -159,6 +200,7 @@ The FeedEngine uses a multi-bucket candidate store with quality filters:
 - **Moods**: Calm, fun, intense preferences
 - **Runtime**: Running average of liked movies
 - **Era**: Classic, modern, recent preferences
+- **Trailers**: Engagement refines taste (minor weight)
 
 ### Diversity Rules
 - Max 3 same-genre in a row
