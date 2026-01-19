@@ -175,7 +175,6 @@ export default function LikedScreen() {
                 <View style={{ marginTop: 24 }}>
                   <StreamingRow
                     providerIds={selectedProviderIds}
-                    movieId={selectedMovie.id}
                     maxVisible={4}
                   />
                 </View>

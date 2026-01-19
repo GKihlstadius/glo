@@ -195,7 +195,6 @@ export default function SessionScreen() {
             <View style={styles.providerSection}>
               <StreamingRow
                 providerIds={winnerProviderIds}
-                movieId={winner.id}
                 maxVisible={4}
               />
             </View>
@@ -267,7 +266,6 @@ export default function SessionScreen() {
           <View style={styles.providerSection}>
             <StreamingRow
               providerIds={currentProviderIds}
-              movieId={currentItem?.movie.id}
               maxVisible={4}
             />
           </View>

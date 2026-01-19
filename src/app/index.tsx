@@ -150,7 +150,6 @@ export default function HomeScreen() {
           <View style={styles.providerSection}>
             <StreamingRow
               providerIds={currentProviderIds}
-              movieId={currentItem?.movie.id}
               maxVisible={4}
             />
           </View>
