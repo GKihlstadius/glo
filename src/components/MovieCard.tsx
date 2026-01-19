@@ -1,8 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { WebView } from 'react-native-webview';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,7 +23,8 @@ import * as Haptics from 'expo-haptics';
 import { Movie } from '@/lib/types';
 import { SWIPE, COLORS } from '@/lib/constants';
 import { PLACEHOLDER_BLUR_HASH, IMAGE_TRANSITION } from '@/lib/image-cache';
-import { getTrailer, getYouTubeEmbedUrl, TrailerInfo } from '@/lib/trailer';
+import { getTrailer, TrailerInfo } from '@/lib/trailer';
+import { YouTubePlayer } from './YouTubePlayer';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -38,8 +38,11 @@ interface MovieCardProps {
   movie: Movie;
   onSwipe: (direction: 'left' | 'right' | 'up') => void;
   haptic?: boolean;
-  showTrailerOnWin?: boolean; // For Spelläge dramatic reveal
+  showTrailerOnWin?: boolean; // For Spelläge match reveal
   onTrailerEngagement?: (duration: number) => void;
+  // Spelläge blind choice mode
+  blindMode?: boolean; // Hide title/year until reveal
+  isRevealed?: boolean; // Show title after like/save
 }
 
 type GestureContext = {
@@ -53,6 +56,8 @@ export function MovieCard({
   haptic = true,
   showTrailerOnWin = false,
   onTrailerEngagement,
+  blindMode = false,
+  isRevealed = false,
 }: MovieCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -60,17 +65,18 @@ export function MovieCard({
   // Trailer preview state
   const [isPreviewingTrailer, setIsPreviewingTrailer] = useState(false);
   const [trailer, setTrailer] = useState<TrailerInfo | null>(null);
+  const [trailerError, setTrailerError] = useState(false);
   const previewStartTime = useRef<number>(0);
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load trailer data on mount
   React.useEffect(() => {
-    getTrailer(movie).then(setTrailer);
+    getTrailer(movie).then(setTrailer).catch(() => setTrailer(null));
   }, [movie.id]);
 
-  // Auto-play trailer for winner reveal (Spelläge)
+  // Auto-play trailer for match reveal (Spelläge Together)
   React.useEffect(() => {
-    if (showTrailerOnWin && trailer) {
+    if (showTrailerOnWin && trailer && !trailerError) {
       setIsPreviewingTrailer(true);
       if (haptic) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -86,7 +92,7 @@ export function MovieCard({
         clearTimeout(previewTimeoutRef.current);
       }
     };
-  }, [showTrailerOnWin, trailer]);
+  }, [showTrailerOnWin, trailer, trailerError, haptic]);
 
   const triggerHaptic = useCallback(() => {
     if (haptic) {
@@ -105,7 +111,7 @@ export function MovieCard({
 
   // Start trailer preview (long press)
   const startTrailerPreview = useCallback(() => {
-    if (!trailer) return;
+    if (!trailer || trailerError) return;
 
     previewStartTime.current = Date.now();
     setIsPreviewingTrailer(true);
@@ -120,7 +126,7 @@ export function MovieCard({
       const duration = Date.now() - previewStartTime.current;
       onTrailerEngagement?.(duration);
     }, PREVIEW_DURATION * 1000);
-  }, [trailer, haptic, onTrailerEngagement]);
+  }, [trailer, trailerError, haptic, onTrailerEngagement]);
 
   // Stop trailer preview (release)
   const stopTrailerPreview = useCallback(() => {
@@ -135,6 +141,14 @@ export function MovieCard({
       previewStartTime.current = 0;
     }
   }, [onTrailerEngagement]);
+
+  // Handle trailer errors silently - just show poster
+  const handleTrailerError = useCallback((error: number) => {
+    console.log('Trailer error (silent):', error);
+    setTrailerError(true);
+    setIsPreviewingTrailer(false);
+    // No error UI - poster remains visible
+  }, []);
 
   // Long press handler for trailer preview
   const onLongPressStateChange = useCallback((event: LongPressGestureHandlerGestureEvent) => {
@@ -206,22 +220,16 @@ export function MovieCard({
     };
   });
 
-  // Generate trailer embed URL
-  const trailerEmbedUrl = trailer
-    ? getYouTubeEmbedUrl(trailer.videoId, {
-        autoplay: true,
-        mute: true, // Muted by default per spec
-        start: 0,
-        end: PREVIEW_DURATION,
-        loop: true,
-      })
-    : null;
+  // Determine if title should be shown
+  // In blind mode: only show if explicitly revealed
+  // In normal mode: always show
+  const showTitle = !blindMode || isRevealed;
 
   return (
     <LongPressGestureHandler
       onHandlerStateChange={onLongPressStateChange}
       minDurationMs={LONG_PRESS_THRESHOLD}
-      enabled={!!trailer}
+      enabled={!!trailer && !trailerError}
     >
       <Animated.View style={{ flex: 1 }}>
         <PanGestureHandler onGestureEvent={gestureHandler}>
@@ -237,35 +245,39 @@ export function MovieCard({
                 cachePolicy="memory-disk"
               />
 
-              {/* Inline trailer preview (overlays poster when active) */}
-              {isPreviewingTrailer && trailerEmbedUrl && (
+              {/* Inline trailer preview using YouTube IFrame Player API */}
+              {isPreviewingTrailer && trailer && !trailerError && (
                 <View style={styles.trailerOverlay}>
-                  <WebView
-                    source={{ uri: trailerEmbedUrl }}
-                    style={styles.trailerWebView}
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction={false}
-                    scrollEnabled={false}
-                    bounces={false}
-                    javaScriptEnabled
+                  <YouTubePlayer
+                    videoId={trailer.videoId}
+                    autoplay={true}
+                    muted={true}
+                    startSeconds={0}
+                    endSeconds={PREVIEW_DURATION}
+                    loop={true}
+                    onError={handleTrailerError}
                   />
                 </View>
               )}
 
-              {/* Subtle gradient for title at bottom only */}
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
-                locations={[0.55, 0.75, 1]}
-                style={styles.gradient}
-              />
+              {/* Subtle gradient for title at bottom only - only when showing title */}
+              {showTitle && (
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
+                  locations={[0.55, 0.75, 1]}
+                  style={styles.gradient}
+                />
+              )}
 
-              {/* Title + Year - minimal, at the bottom */}
-              <View style={styles.infoContainer}>
-                <Text style={styles.title} numberOfLines={2}>
-                  {movie.title}
-                </Text>
-                <Text style={styles.yearText}>{movie.year}</Text>
-              </View>
+              {/* Title + Year - hidden in blind mode until revealed */}
+              {showTitle && (
+                <View style={styles.infoContainer}>
+                  <Text style={styles.title} numberOfLines={2}>
+                    {movie.title}
+                  </Text>
+                  <Text style={styles.yearText}>{movie.year}</Text>
+                </View>
+              )}
             </View>
           </Animated.View>
         </PanGestureHandler>
@@ -287,10 +299,6 @@ const styles = StyleSheet.create({
   },
   trailerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
-  },
-  trailerWebView: {
-    flex: 1,
     backgroundColor: '#000',
   },
   gradient: {

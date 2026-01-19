@@ -112,7 +112,8 @@ export interface FeedItem {
   };
 }
 
-// Session for couch/spellage mode
+// Session for Spelläge (the ONLY premium feature)
+// Spelläge contains: Solo and Together modes
 export interface Session {
   id: string;
   code: string;
@@ -122,7 +123,9 @@ export interface Session {
   matchedMovieId?: string;
   mood?: Mood;
   regionCode: string;
-  mode: 'couch' | 'spellage';
+  mode: 'spellage'; // Only Spelläge exists as premium
+  spellageSolo?: boolean; // true = Solo, false = Together
+  blindChoice?: boolean; // MANDATORY in Spelläge: titles hidden until reveal
   createdAt: number;
   expiresAt: number;
 }

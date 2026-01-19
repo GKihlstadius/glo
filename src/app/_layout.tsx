@@ -55,7 +55,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" />
         <Stack.Screen name="settings" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="saved" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="couch" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="liked" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="spellage" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="session" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>

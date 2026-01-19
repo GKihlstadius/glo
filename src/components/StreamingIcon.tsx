@@ -4,74 +4,66 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 
 // STREAMING ICON SYSTEM - ICON LOCK
-// All icons extracted from the user-provided image asset at /public/image.png
+// All icons extracted from the user-provided image asset at /public/image-1.png
 // ❌ NO generated icons, fetched icons, recolors, approximations, or letters
 // If an icon doesn't exist in the image → it must NOT be shown
 
-// Icon positions in the sprite sheet (public/image.png)
-// The image is a grid of streaming provider logos
-// Each icon is approximately 120x60 pixels in the source
+// The sprite sheet is organized in 3 rows, 9 columns
 // Row 1: Netflix, YouTube TV, Prime Video, HBO Max, Hulu, Disney+, Apple TV+, CBS, AMC
 // Row 2: Crackle, LiveXLive, Showtime, Sky Go, Spotify, Google Play Music, Apple Music, TuneIn, SiriusXM
-// Row 3: Acorn TV, Crunchyroll, Rakuten TV, MUBI, Deezer, Fubo TV, Plex, Sling, Philo
+// Row 3: Acorn TV, Crunchyroll, Rakuten TV, MUBI, Deezer, Fubo TV, PLEX, Sling, Philo
 
-// Provider IDs that exist in our image asset
-export const AVAILABLE_PROVIDERS = [
-  'netflix',
-  'prime',
-  'hbo', // HBO Max
-  'hulu',
-  'disney',
-  'apple',
-  'mubi',
-  'crunchyroll',
-  'paramount', // Not in image - will be excluded
-  'peacock', // Not in image - will be excluded
-] as const;
+// Sprite dimensions (from image analysis)
+const SPRITE_COLS = 9;
+const SPRITE_ROWS = 3;
+const ICON_ASPECT = 1.8; // Width/Height ratio of each icon
 
-// Only these providers have verified icons in the asset
-export const VERIFIED_PROVIDERS = new Set([
-  'netflix',
-  'prime',
-  'hbo',
-  'hulu',
-  'disney',
-  'apple',
-  'mubi',
-  'crunchyroll',
-]);
-
-// Icon crop positions from sprite (x, y, width, height) based on image analysis
-// Source image dimensions: ~1200x200 pixels, 9 icons per row
-const ICON_WIDTH = 120;
-const ICON_HEIGHT = 60;
-
+// Icon positions in the sprite (row, col) - 0-indexed
+// ONLY these providers are available - if not in this list, icon will NOT show
 const ICON_POSITIONS: Record<string, { row: number; col: number }> = {
+  // Row 1 - Streaming video
   netflix: { row: 0, col: 0 },
+  youtubetv: { row: 0, col: 1 },
   prime: { row: 0, col: 2 },
-  hbo: { row: 0, col: 3 },
+  hbo: { row: 0, col: 3 }, // HBO Max
   hulu: { row: 0, col: 4 },
   disney: { row: 0, col: 5 },
-  apple: { row: 0, col: 6 },
-  mubi: { row: 2, col: 3 },
+  apple: { row: 0, col: 6 }, // Apple TV+
+  cbs: { row: 0, col: 7 },
+  amc: { row: 0, col: 8 },
+  // Row 2 - Mixed streaming
+  crackle: { row: 1, col: 0 },
+  livexlive: { row: 1, col: 1 },
+  showtime: { row: 1, col: 2 },
+  skygo: { row: 1, col: 3 },
+  spotify: { row: 1, col: 4 },
+  googleplaymusic: { row: 1, col: 5 },
+  applemusic: { row: 1, col: 6 },
+  tunein: { row: 1, col: 7 },
+  siriusxm: { row: 1, col: 8 },
+  // Row 3 - Specialty streaming
+  acorntv: { row: 2, col: 0 },
   crunchyroll: { row: 2, col: 1 },
+  rakuten: { row: 2, col: 2 },
+  mubi: { row: 2, col: 3 },
+  deezer: { row: 2, col: 4 },
+  fubotv: { row: 2, col: 5 },
+  plex: { row: 2, col: 6 },
+  sling: { row: 2, col: 7 },
+  philo: { row: 2, col: 8 },
 };
 
-// Individual icon URLs - using public CDN URLs for official logos
-// These are the ONLY allowed icons - pixel-perfect originals
-const PROVIDER_ICON_URLS: Record<string, string> = {
-  netflix: 'https://images.justwatch.com/icon/207360008/s100/netflix.webp',
-  prime: 'https://images.justwatch.com/icon/52449861/s100/amazonprimevideo.webp',
-  hbo: 'https://images.justwatch.com/icon/305458112/s100/max.webp',
-  hulu: 'https://images.justwatch.com/icon/116305230/s100/hulu.webp',
-  disney: 'https://images.justwatch.com/icon/147638351/s100/disneyplus.webp',
-  apple: 'https://images.justwatch.com/icon/190848813/s100/appletvplus.webp',
-  mubi: 'https://images.justwatch.com/icon/12992313/s100/mubi.webp',
-  crunchyroll: 'https://images.justwatch.com/icon/124617388/s100/crunchyroll.webp',
-  paramount: 'https://images.justwatch.com/icon/232697956/s100/paramountplus.webp',
-  peacock: 'https://images.justwatch.com/icon/194318936/s100/peacock.webp',
-  viaplay: 'https://images.justwatch.com/icon/251027686/s100/viaplay.webp',
-  criterion: 'https://images.justwatch.com/icon/99363316/s100/criterionchannel.webp',
+// Provider ID aliases (normalize different naming conventions)
+const PROVIDER_ALIASES: Record<string, string> = {
+  amazonprime: 'prime',
+  primevideo: 'prime',
+  amazonprimevideo: 'prime',
+  hbomax: 'hbo',
+  max: 'hbo',
+  disneyplus: 'disney',
+  appletv: 'apple',
+  appletvplus: 'apple',
+  paramountplus: 'cbs', // Paramount+ is CBS rebrand
 };
 
 // Provider deep link patterns for opening exact movie
@@ -108,22 +100,39 @@ const PROVIDER_LINKS: Record<string, { universal: string; scheme?: string; web: 
     universal: 'https://mubi.com/films/',
     web: 'https://mubi.com/films/',
   },
-  paramount: {
+  crunchyroll: {
+    universal: 'https://www.crunchyroll.com/',
+    web: 'https://www.crunchyroll.com/',
+  },
+  cbs: {
     universal: 'https://www.paramountplus.com/movies/',
     web: 'https://www.paramountplus.com/movies/',
   },
-  peacock: {
-    universal: 'https://www.peacocktv.com/watch/playback/movie/',
-    web: 'https://www.peacocktv.com/watch/playback/movie/',
+  showtime: {
+    universal: 'https://www.sho.com/',
+    web: 'https://www.sho.com/',
+  },
+  plex: {
+    universal: 'https://watch.plex.tv/',
+    web: 'https://watch.plex.tv/',
+  },
+  acorntv: {
+    universal: 'https://acorn.tv/',
+    web: 'https://acorn.tv/',
+  },
+  rakuten: {
+    universal: 'https://www.rakuten.tv/',
+    web: 'https://www.rakuten.tv/',
   },
 };
 
 type IconSize = 'small' | 'medium' | 'large';
 
-const SIZES: Record<IconSize, number> = {
-  small: 24,
-  medium: 28,
-  large: 36,
+// Display sizes for icons
+const SIZES: Record<IconSize, { width: number; height: number }> = {
+  small: { width: 36, height: 20 },
+  medium: { width: 48, height: 27 },
+  large: { width: 64, height: 36 },
 };
 
 interface StreamingIconProps {
@@ -134,9 +143,16 @@ interface StreamingIconProps {
   haptic?: boolean;
 }
 
-// Check if provider has a verified icon
+// Normalize provider ID using aliases
+function normalizeProviderId(id: string): string {
+  const lowerId = id.toLowerCase().replace(/[\s-_]/g, '');
+  return PROVIDER_ALIASES[lowerId] || lowerId;
+}
+
+// Check if provider has an icon in the sprite sheet
 export function hasVerifiedIcon(providerId: string): boolean {
-  return providerId in PROVIDER_ICON_URLS;
+  const normalized = normalizeProviderId(providerId);
+  return normalized in ICON_POSITIONS;
 }
 
 // Get only providers that have verified icons
@@ -146,7 +162,8 @@ export function filterVerifiedProviders(providerIds: string[]): string[] {
 
 // Open movie in streaming provider app/web
 async function openStreamingLink(providerId: string, movieId?: string): Promise<void> {
-  const links = PROVIDER_LINKS[providerId];
+  const normalized = normalizeProviderId(providerId);
+  const links = PROVIDER_LINKS[normalized];
   if (!links || !movieId) return;
 
   try {
@@ -183,11 +200,13 @@ export function StreamingIcon({
   movieId,
   haptic = true,
 }: StreamingIconProps) {
-  const pixelSize = SIZES[size];
-  const iconUrl = PROVIDER_ICON_URLS[providerId];
+  const normalized = normalizeProviderId(providerId);
+  const position = ICON_POSITIONS[normalized];
 
-  // If no verified icon exists, return null (never show fake icons)
-  if (!iconUrl) return null;
+  // If no verified icon exists in sprite, return null (never show fake icons)
+  if (!position) return null;
+
+  const dimensions = SIZES[size];
 
   const handlePress = async () => {
     if (haptic) {
@@ -201,26 +220,40 @@ export function StreamingIcon({
     }
   };
 
+  // Calculate crop region for the sprite
+  // The image is a grid with SPRITE_COLS x SPRITE_ROWS icons
+  // We use percentage-based positioning for the crop
+  const cropPercentX = (position.col / SPRITE_COLS) * 100;
+  const cropPercentY = (position.row / SPRITE_ROWS) * 100;
+  const cropWidthPercent = (1 / SPRITE_COLS) * 100;
+  const cropHeightPercent = (1 / SPRITE_ROWS) * 100;
+
   return (
     <Pressable
       onPress={handlePress}
       style={({ pressed }) => [
         styles.iconContainer,
-        { width: pixelSize, height: pixelSize },
+        { width: dimensions.width, height: dimensions.height },
         pressed && styles.pressed,
       ]}
       hitSlop={8}
     >
-      <Image
-        source={{ uri: iconUrl }}
-        style={{
-          width: pixelSize,
-          height: pixelSize,
-          borderRadius: pixelSize * 0.2,
-        }}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-      />
+      {/* Overflow container to clip the sprite */}
+      <View style={[styles.spriteClip, { width: dimensions.width, height: dimensions.height }]}>
+        <Image
+          source={require('../../public/image-1.png')}
+          style={{
+            // Scale sprite so each icon fills the container
+            width: dimensions.width * SPRITE_COLS,
+            height: dimensions.height * SPRITE_ROWS,
+            // Offset to show correct icon
+            marginLeft: -dimensions.width * position.col,
+            marginTop: -dimensions.height * position.row,
+          }}
+          contentFit="fill"
+          cachePolicy="memory-disk"
+        />
+      </View>
     </Pressable>
   );
 }
@@ -262,7 +295,13 @@ export function StreamingRow({
 
 const styles = StyleSheet.create({
   iconContainer: {
+    borderRadius: 6,
     overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  spriteClip: {
+    overflow: 'hidden',
+    borderRadius: 6,
   },
   pressed: {
     opacity: 0.7,
@@ -271,6 +310,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
 });

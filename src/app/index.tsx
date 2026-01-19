@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { X, Bookmark, Heart, Gamepad2, Sofa, Settings } from 'lucide-react-native';
+import { X, Bookmark, Heart, Gamepad2, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { MovieCard } from '@/components/MovieCard';
 import { StreamingRow } from '@/components/StreamingIcon';
@@ -194,7 +194,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Secondary navigation: Spelläge / Soffläge / Settings */}
+        {/* Secondary navigation: Spelläge / Settings */}
         <View style={styles.secondaryNav}>
           <Pressable
             onPress={() => router.push('/spellage')}
@@ -202,14 +202,6 @@ export default function HomeScreen() {
             hitSlop={12}
           >
             <Gamepad2 size={20} color={COLORS.textMuted} />
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/couch')}
-            style={({ pressed }) => [styles.navButton, pressed && { opacity: 0.5 }]}
-            hitSlop={12}
-          >
-            <Sofa size={20} color={COLORS.textMuted} />
           </Pressable>
 
           <Pressable

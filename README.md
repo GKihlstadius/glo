@@ -29,11 +29,11 @@ Every movie shown can actually be watched in the country you live in. No US-only
 
 ### Streaming Providers (above actions)
 - Single horizontal row
-- **Official icons only** (from verified CDN sources)
-- Netflix, Prime, Disney+, Max, Apple TV+, Hulu, MUBI, Criterion
+- **Icons from sprite sheet only** (public/image-1.png)
+- Netflix, Prime, HBO Max, Hulu, Disney+, Apple TV+, MUBI, Crunchyroll, etc.
 - Tap opens exact movie in provider app (deep link)
 - Max 4 icons shown
-- If icon not verified → not shown
+- If icon not in sprite sheet → not shown
 
 ### Bottom Action Bar
 Three actions (left to right):
@@ -45,7 +45,6 @@ Icons only. Haptic feedback on press.
 ### Secondary Navigation
 Below action bar, always visible:
 - Spelläge (game mode)
-- Soffläge (couch mode)
 - Settings
 
 ## Data Quality Rules (NON-NEGOTIABLE)
@@ -74,14 +73,15 @@ Below action bar, always visible:
 
 ### Trailer System
 - **Hold-to-preview**: Long press (450ms) on poster to play inline trailer
+- **YouTube IFrame Player API**: Fixes Error 153, proper inline playback
 - **Muted by default**: Trailers play silently, never interrupt
 - **10-15 second loops**: Short, cinematic previews
-- **Never leaves app**: Inline WebView playback, no YouTube redirect
+- **Never leaves app**: WebView with IFrame API, no YouTube redirect
 - **Official sources only**: Strict query strategy for studio/distributor trailers
-- **Regional caching**: Trailers cached per movie + region + language
 
 ### Streaming Provider Integration
-- **Verified icons only**: Netflix, Prime, Disney+, Max, Apple TV+, Hulu, MUBI, Criterion
+- **Sprite sheet icons only**: All icons from public/image-1.png
+- **Available providers**: Netflix, Prime Video, HBO Max, Hulu, Disney+, Apple TV+, CBS, AMC, Showtime, MUBI, Crunchyroll, Rakuten TV, Acorn TV, Plex, and more
 - **Deep linking**: Opens streaming app directly to the movie
 - **Fallback chain**: Universal link → URL scheme → Web browser
 - **Provider sorting**: Stream offers first, then rent, then buy
@@ -93,26 +93,28 @@ Below action bar, always visible:
 - Placeholder blur hash during loading
 - Pure black background (#000000)
 
-### Soffläge (Couch Mode)
-- Create a session and share via:
-  - Share link (native share sheet)
-  - Copy link (for messaging)
-  - Show code (for someone next to you)
-- Join with a 6-character code
-- Secure tokens with 2-hour expiry
-- Match confirmation with brief trailer preview
+### Spelläge (Game Mode) - Premium Feature
+The ONLY premium feature in Glo. Contains two modes:
 
-### Spelläge (Game Mode)
-- Pick a mood: Calm, Fun, Intense, Short
+#### Solo Mode
+- Pick a mood: Calm, Fun, Intense, Short, or Surprise Me
+- **Blind choice**: Movie titles hidden until you like/save
 - Filtered movie selection based on mood
-- **Winner reveal**: After 5 likes, a random winner is dramatically revealed
-- **Cinematic trailer**: Winner auto-plays trailer inline
-- Perfect for date nights or group decisions
+- After 5 likes, a random winner is dramatically revealed
+- Winner auto-plays trailer inline
 
-### Saved Movies Library
-- Grid view of all saved movies
+#### Together Mode
+- Same as Solo, but with a shareable room code
+- Join with a 6-character code
+- Both participants swipe blind (titles hidden)
+- Match confirmation when both like the same movie
+- Winner revealed with cinematic trailer
+
+### My Library (Settings)
+- **Saved Movies**: Grid view of all saved movies
+- **Liked Movies**: Grid view of all liked movies
 - Tap to view details with streaming providers
-- Quick remove with trash icon
+- Quick save/remove actions
 - Same posters as main feed
 
 ## Tech Stack
@@ -122,7 +124,7 @@ Below action bar, always visible:
 - React Native Gesture Handler for swipes
 - Zustand for state management with persistence
 - expo-image for optimized image loading
-- react-native-webview for inline trailer playback
+- react-native-webview for inline trailer playback (YouTube IFrame API)
 
 ## File Structure
 ```
@@ -130,17 +132,15 @@ src/
 ├── app/
 │   ├── _layout.tsx      # Root layout with navigation
 │   ├── index.tsx        # Home screen (Quick Swipe)
-│   ├── settings.tsx     # Settings modal
-│   ├── saved.tsx        # Saved movies grid with detail modal
-│   ├── couch.tsx        # Soffläge setup with invite sheet
-│   ├── spellage.tsx     # Spelläge mood picker
-│   └── session.tsx      # Active swiping session with winner reveal
+│   ├── settings.tsx     # Settings modal with My Library
+│   ├── saved.tsx        # Saved movies grid
+│   ├── liked.tsx        # Liked movies grid
+│   ├── spellage.tsx     # Spelläge mode picker (Solo/Together)
+│   └── session.tsx      # Active game session with blind choice
 ├── components/
-│   ├── MovieCard.tsx    # Main card with swipe + hold-to-preview
-│   ├── StreamingIcon.tsx # Verified streaming icons + deep links
-│   ├── ProviderButton.tsx # Legacy provider row
-│   ├── ProviderIcon.tsx # Legacy SVG icons
-│   └── InviteSheet.tsx  # Room sharing sheet
+│   ├── MovieCard.tsx    # Main card with swipe + hold-to-preview + blind mode
+│   ├── StreamingIcon.tsx # Sprite sheet icons + deep links
+│   └── YouTubePlayer.tsx # IFrame Player API component
 └── lib/
     ├── types.ts         # TypeScript interfaces
     ├── constants.ts     # App constants and config
@@ -152,11 +152,18 @@ src/
     ├── streaming.ts     # Provider deep linking
     ├── image-cache.ts   # Image prefetch utilities
     ├── tmdb.ts          # TMDB API types and helpers
-    ├── room.ts          # Room invite utilities
     └── cn.ts            # ClassName utility
 ```
 
 ## Trailer System Details
+
+### YouTube IFrame Player API
+- Uses official YouTube IFrame Player API for reliable playback
+- Fixes Error 153 that occurs with direct embedding
+- WebView configured with:
+  - `allowsInlineMediaPlayback={true}`
+  - `mediaPlaybackRequiresUserAction={false}`
+  - Proper origin and playsinline parameters
 
 ### YouTube Query Strategy (Priority Order)
 1. **Official/Studio** (top priority): `"{title} {year} official trailer"`

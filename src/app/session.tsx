@@ -38,6 +38,9 @@ export default function SessionScreen() {
   const [winner, setWinner] = useState<Movie | null>(null);
   const [showWinnerReveal, setShowWinnerReveal] = useState(false);
 
+  // Blind choice: track which movies have been revealed (liked/saved)
+  const [revealedMovies, setRevealedMovies] = useState<Set<string>>(new Set());
+
   // Feed engine reference
   const feedEngineRef = useRef<FeedEngine | null>(null);
 
@@ -88,6 +91,10 @@ export default function SessionScreen() {
         feedEngineRef.current.recordSwipe(movie.id, 'like');
         // Track session likes for Spelläge
         setSessionLikes(prev => [...prev, movie.id]);
+        // Reveal movie title in blind mode after like
+        if (session?.blindChoice) {
+          setRevealedMovies(prev => new Set(prev).add(movie.id));
+        }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else if (direction === 'left') {
         passMovie(movie.id);
@@ -97,6 +104,10 @@ export default function SessionScreen() {
         feedEngineRef.current.recordSwipe(movie.id, 'save');
         // Also count saves as likes for Spelläge
         setSessionLikes(prev => [...prev, movie.id]);
+        // Reveal movie title in blind mode after save
+        if (session?.blindChoice) {
+          setRevealedMovies(prev => new Set(prev).add(movie.id));
+        }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
@@ -198,7 +209,7 @@ export default function SessionScreen() {
               onPress={handleExit}
               style={({ pressed }) => [
                 styles.winnerButton,
-                styles.exitButton,
+                styles.winnerExitButton,
                 pressed && { opacity: 0.8 },
               ]}
             >
@@ -214,30 +225,10 @@ export default function SessionScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
-      {/* Top area - minimal session info */}
-      <View
-        className="flex-row items-center justify-between px-4"
-        style={{ paddingTop: insets.top + 8, paddingBottom: 4 }}
-      >
-        <View className="flex-row items-center">
-          {session?.code ? (
-            <Text className="text-sm font-mono" style={{ color: COLORS.textMuted }}>
-              {session.code}
-            </Text>
-          ) : session?.mood ? (
-            <View className="flex-row items-center" style={{ gap: 8 }}>
-              <Text className="text-sm" style={{ color: COLORS.textMuted }}>
-                {getMoodLabel(session.mood)}
-              </Text>
-              {session.mode === 'spellage' && (
-                <Text className="text-xs" style={{ color: COLORS.textMuted }}>
-                  {sessionLikes.length}/{ROUNDS_TO_WIN}
-                </Text>
-              )}
-            </View>
-          ) : null}
-        </View>
-        <Pressable onPress={handleExit} hitSlop={12}>
+      {/* Top area - absolute minimal: only X to exit */}
+      <View style={{ height: insets.top }} />
+      <View style={styles.exitRow}>
+        <Pressable onPress={handleExit} hitSlop={12} style={styles.exitButton}>
           <X size={22} color={COLORS.textMuted} />
         </Pressable>
       </View>
@@ -265,6 +256,8 @@ export default function SessionScreen() {
             movie={currentItem.movie}
             onSwipe={handleSwipe}
             haptic={haptic}
+            blindMode={session?.blindChoice ?? false}
+            isRevealed={revealedMovies.has(currentItem.movie.id)}
           />
         )}
       </View>
@@ -325,6 +318,15 @@ export default function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
+  exitRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  exitButton: {
+    padding: 4,
+  },
   cardArea: {
     flex: 1,
     marginHorizontal: 8,
@@ -387,7 +389,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
-  exitButton: {
+  winnerExitButton: {
     backgroundColor: COLORS.bgCard,
   },
   winnerButtonText: {
