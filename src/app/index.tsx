@@ -151,8 +151,6 @@ export default function HomeScreen() {
             <StreamingRow
               providerIds={currentProviderIds}
               movieId={currentItem?.movie.id}
-              size="medium"
-              haptic={haptic}
               maxVisible={4}
             />
           </View>

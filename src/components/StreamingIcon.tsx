@@ -1,22 +1,41 @@
 import React from 'react';
 import { View, Pressable, StyleSheet, Linking } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 
-// STREAMING ICON SYSTEM - ICON LOCK
-// All icons extracted from the user-provided image asset at /public/image-1.png
-// ❌ NO generated icons, fetched icons, recolors, approximations, or letters
-// If an icon doesn't exist in the image → it must NOT be shown
+// ============================================================================
+// STREAMING ICON RENDERING — FINAL LOCK
+// ============================================================================
+// Icons are LOGOS, not UI elements.
+// They must be rendered exactly as provided by the user.
+//
+// MUST:
+// - Render icons exactly as provided
+// - Preserve original colors
+// - Preserve original shape
+// - Preserve original aspect ratio
+// - Scale uniformly ONLY to fit max height
+//
+// MUST NOT:
+// - Apply border radius
+// - Apply background containers
+// - Apply shadows, overlays, or masks
+// - Normalize icon dimensions visually
+// - Apply theme colors
+// - Treat icons as buttons or chips
+// - Apply press animation, hover effect, or opacity change
+//
+// If icons differ in shape or color → that is CORRECT.
+// Uniformity is NOT the goal. Brand recognition IS.
+// ============================================================================
 
 // The sprite sheet is organized in 3 rows, 9 columns
+// Source: public/image-1.png (user-provided asset)
 // Row 1: Netflix, YouTube TV, Prime Video, HBO Max, Hulu, Disney+, Apple TV+, CBS, AMC
 // Row 2: Crackle, LiveXLive, Showtime, Sky Go, Spotify, Google Play Music, Apple Music, TuneIn, SiriusXM
 // Row 3: Acorn TV, Crunchyroll, Rakuten TV, MUBI, Deezer, Fubo TV, PLEX, Sling, Philo
 
-// Sprite dimensions (from image analysis)
 const SPRITE_COLS = 9;
 const SPRITE_ROWS = 3;
-const ICON_ASPECT = 1.8; // Width/Height ratio of each icon
 
 // Icon positions in the sprite (row, col) - 0-indexed
 // ONLY these providers are available - if not in this list, icon will NOT show
@@ -25,10 +44,10 @@ const ICON_POSITIONS: Record<string, { row: number; col: number }> = {
   netflix: { row: 0, col: 0 },
   youtubetv: { row: 0, col: 1 },
   prime: { row: 0, col: 2 },
-  hbo: { row: 0, col: 3 }, // HBO Max
+  hbo: { row: 0, col: 3 },
   hulu: { row: 0, col: 4 },
   disney: { row: 0, col: 5 },
-  apple: { row: 0, col: 6 }, // Apple TV+
+  apple: { row: 0, col: 6 },
   cbs: { row: 0, col: 7 },
   amc: { row: 0, col: 8 },
   // Row 2 - Mixed streaming
@@ -63,7 +82,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   disneyplus: 'disney',
   appletv: 'apple',
   appletvplus: 'apple',
-  paramountplus: 'cbs', // Paramount+ is CBS rebrand
+  paramountplus: 'cbs',
 };
 
 // Provider deep link patterns for opening exact movie
@@ -126,21 +145,13 @@ const PROVIDER_LINKS: Record<string, { universal: string; scheme?: string; web: 
   },
 };
 
-type IconSize = 'small' | 'medium' | 'large';
-
-// Display sizes for icons
-const SIZES: Record<IconSize, { width: number; height: number }> = {
-  small: { width: 36, height: 20 },
-  medium: { width: 48, height: 27 },
-  large: { width: 64, height: 36 },
-};
+// Max height for icons - they scale uniformly to fit this
+const MAX_ICON_HEIGHT = 24;
 
 interface StreamingIconProps {
   providerId: string;
-  size?: IconSize;
   onPress?: () => void;
   movieId?: string;
-  haptic?: boolean;
 }
 
 // Normalize provider ID using aliases
@@ -167,7 +178,6 @@ async function openStreamingLink(providerId: string, movieId?: string): Promise<
   if (!links || !movieId) return;
 
   try {
-    // Try universal link first (best UX)
     const universalUrl = `${links.universal}${movieId}`;
     const canOpen = await Linking.canOpenURL(universalUrl);
 
@@ -176,7 +186,6 @@ async function openStreamingLink(providerId: string, movieId?: string): Promise<
       return;
     }
 
-    // Try app scheme if available
     if (links.scheme) {
       const schemeUrl = `${links.scheme}${movieId}`;
       const canOpenScheme = await Linking.canOpenURL(schemeUrl);
@@ -186,33 +195,25 @@ async function openStreamingLink(providerId: string, movieId?: string): Promise<
       }
     }
 
-    // Fallback to web
     await Linking.openURL(`${links.web}${movieId}`);
   } catch {
-    // Silent fail - never break flow
+    // Silent fail
   }
 }
 
 export function StreamingIcon({
   providerId,
-  size = 'medium',
   onPress,
   movieId,
-  haptic = true,
 }: StreamingIconProps) {
   const normalized = normalizeProviderId(providerId);
   const position = ICON_POSITIONS[normalized];
 
-  // If no verified icon exists in sprite, return null (never show fake icons)
+  // If no verified icon exists, return null
   if (!position) return null;
 
-  const dimensions = SIZES[size];
-
   const handlePress = async () => {
-    if (haptic) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-
+    // NO haptic feedback - icons should feel passive
     if (onPress) {
       onPress();
     } else if (movieId) {
@@ -220,35 +221,29 @@ export function StreamingIcon({
     }
   };
 
-  // Calculate crop region for the sprite
-  // The image is a grid with SPRITE_COLS x SPRITE_ROWS icons
-  // We use percentage-based positioning for the crop
-  const cropPercentX = (position.col / SPRITE_COLS) * 100;
-  const cropPercentY = (position.row / SPRITE_ROWS) * 100;
-  const cropWidthPercent = (1 / SPRITE_COLS) * 100;
-  const cropHeightPercent = (1 / SPRITE_ROWS) * 100;
+  // Icon dimensions: preserve original aspect ratio from sprite
+  // The sprite has icons at approximately 1.8:1 aspect ratio (width:height)
+  const iconWidth = MAX_ICON_HEIGHT * 1.8;
+  const iconHeight = MAX_ICON_HEIGHT;
 
   return (
     <Pressable
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.iconContainer,
-        { width: dimensions.width, height: dimensions.height },
-        pressed && styles.pressed,
-      ]}
+      // NO pressed style - icons should feel passive but obvious
+      style={styles.iconTouchArea}
       hitSlop={8}
     >
-      {/* Overflow container to clip the sprite */}
-      <View style={[styles.spriteClip, { width: dimensions.width, height: dimensions.height }]}>
+      {/* Clip container - overflow hidden to extract from sprite */}
+      <View style={{ width: iconWidth, height: iconHeight, overflow: 'hidden' }}>
         <Image
           source={require('../../public/image-1.png')}
           style={{
-            // Scale sprite so each icon fills the container
-            width: dimensions.width * SPRITE_COLS,
-            height: dimensions.height * SPRITE_ROWS,
-            // Offset to show correct icon
-            marginLeft: -dimensions.width * position.col,
-            marginTop: -dimensions.height * position.row,
+            // Scale sprite so each icon cell matches our target size
+            width: iconWidth * SPRITE_COLS,
+            height: iconHeight * SPRITE_ROWS,
+            // Offset to show the correct icon
+            marginLeft: -iconWidth * position.col,
+            marginTop: -iconHeight * position.row,
           }}
           contentFit="fill"
           cachePolicy="memory-disk"
@@ -261,19 +256,15 @@ export function StreamingIcon({
 interface StreamingRowProps {
   providerIds: string[];
   movieId?: string;
-  size?: IconSize;
-  haptic?: boolean;
   maxVisible?: number;
+  // Removed: size, haptic - icons render at fixed size, no haptic
 }
 
 export function StreamingRow({
   providerIds,
   movieId,
-  size = 'medium',
-  haptic = true,
   maxVisible = 4,
 }: StreamingRowProps) {
-  // Filter to only verified providers
   const verified = filterVerifiedProviders(providerIds).slice(0, maxVisible);
 
   if (verified.length === 0) return null;
@@ -284,9 +275,7 @@ export function StreamingRow({
         <StreamingIcon
           key={providerId}
           providerId={providerId}
-          size={size}
           movieId={movieId}
-          haptic={haptic}
         />
       ))}
     </View>
@@ -294,22 +283,15 @@ export function StreamingRow({
 }
 
 const styles = StyleSheet.create({
-  iconContainer: {
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-  },
-  spriteClip: {
-    overflow: 'hidden',
-    borderRadius: 6,
-  },
-  pressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+  iconTouchArea: {
+    // NO border radius
+    // NO background
+    // NO shadows
+    // Just a touch target
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
 });

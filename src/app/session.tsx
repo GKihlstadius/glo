@@ -196,8 +196,6 @@ export default function SessionScreen() {
               <StreamingRow
                 providerIds={winnerProviderIds}
                 movieId={winner.id}
-                size="medium"
-                haptic={haptic}
                 maxVisible={4}
               />
             </View>
@@ -270,8 +268,6 @@ export default function SessionScreen() {
             <StreamingRow
               providerIds={currentProviderIds}
               movieId={currentItem?.movie.id}
-              size="medium"
-              haptic={haptic}
               maxVisible={4}
             />
           </View>

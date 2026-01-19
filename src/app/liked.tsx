@@ -176,8 +176,6 @@ export default function LikedScreen() {
                   <StreamingRow
                     providerIds={selectedProviderIds}
                     movieId={selectedMovie.id}
-                    size="large"
-                    haptic={haptic}
                     maxVisible={4}
                   />
                 </View>

@@ -168,8 +168,6 @@ export default function SavedScreen() {
                   <StreamingRow
                     providerIds={selectedProviderIds}
                     movieId={selectedMovie.id}
-                    size="large"
-                    haptic={haptic}
                     maxVisible={4}
                   />
                 </View>
