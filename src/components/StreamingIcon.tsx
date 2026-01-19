@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Pressable, StyleSheet, Linking } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Pressable, StyleSheet, Linking, ImageBackground } from 'react-native';
 
 // ============================================================================
 // STREAMING ICON RENDERING — FINAL LOCK
@@ -10,43 +9,28 @@ import { Image } from 'expo-image';
 //
 // RENDERING RULES (NON-NEGOTIABLE):
 // - Plain image
-// - Transparent background
 // - Original colors
 // - Original shape
 // - Original aspect ratio
 //
 // THE APP MUST NOT APPLY:
-// - Background color
-// - White or black pills
-// - Padding
-// - Border radius
-// - Shadows
-// - Masks
-// - Overlays
-// - Opacity effects
-// - Hover or press states
-// - Scaling beyond a shared max height
+// - Background color / pills
+// - Padding / border radius / shadows / masks / overlays
+// - Opacity effects / hover or press states
 //
 // If an icon looks like a button → implementation is WRONG.
-//
-// LAYOUT RULES:
-// - Icons sit directly on the app background
-// - Icons may share a max height only
-// - Icons must NOT be visually equalized
-// - Visual inconsistency is expected and CORRECT
-//
-// INTERACTION:
-// - Tappable
-// - Opens streaming app via deep link
-// - NO animation
-// - NO visual feedback
-// - They must feel PASSIVE, not interactive UI
 // ============================================================================
 
-// Sprite sheet: public/image-2.png (user-provided asset)
-// 3 rows, 9 columns
+// Sprite sheet: public/image-2.png
+// Actual image dimensions: 1290 x 180 pixels
+// Grid: 9 columns x 3 rows
+// Each cell: ~143 x 60 pixels
+const SPRITE_WIDTH = 1290;
+const SPRITE_HEIGHT = 180;
 const SPRITE_COLS = 9;
 const SPRITE_ROWS = 3;
+const CELL_WIDTH = SPRITE_WIDTH / SPRITE_COLS; // ~143.3
+const CELL_HEIGHT = SPRITE_HEIGHT / SPRITE_ROWS; // 60
 
 // Icon positions (row, col) - 0-indexed
 const ICON_POSITIONS: Record<string, { row: number; col: number }> = {
@@ -155,9 +139,9 @@ const PROVIDER_LINKS: Record<string, { universal: string; scheme?: string; web: 
   },
 };
 
-// Shared max height - icons scale to this, preserving aspect ratio
-const MAX_HEIGHT = 24;
-const ICON_ASPECT = 1.8; // Width:Height from sprite
+// Display height for icons
+const DISPLAY_HEIGHT = 28;
+const DISPLAY_WIDTH = DISPLAY_HEIGHT * (CELL_WIDTH / CELL_HEIGHT); // Preserve aspect ratio
 
 function normalizeProviderId(id: string): string {
   const lowerId = id.toLowerCase().replace(/[\s-_]/g, '');
@@ -203,6 +187,9 @@ interface StreamingIconProps {
   movieId?: string;
 }
 
+// Use require once at module level
+const spriteSource = require('../../public/image-2.png');
+
 export function StreamingIcon({ providerId, movieId }: StreamingIconProps) {
   const normalized = normalizeProviderId(providerId);
   const position = ICON_POSITIONS[normalized];
@@ -210,29 +197,34 @@ export function StreamingIcon({ providerId, movieId }: StreamingIconProps) {
   if (!position) return null;
 
   const handlePress = async () => {
-    // NO haptic, NO animation, NO visual feedback
     if (movieId) {
       await openStreamingLink(providerId, movieId);
     }
   };
 
-  // Icon dimensions from sprite aspect ratio
-  const iconWidth = MAX_HEIGHT * ICON_ASPECT;
-  const iconHeight = MAX_HEIGHT;
+  // Calculate scale factor from original sprite to display size
+  const scale = DISPLAY_HEIGHT / CELL_HEIGHT;
+  const scaledSpriteWidth = SPRITE_WIDTH * scale;
+  const scaledSpriteHeight = SPRITE_HEIGHT * scale;
+  const offsetX = -position.col * DISPLAY_WIDTH;
+  const offsetY = -position.row * DISPLAY_HEIGHT;
 
   return (
     <Pressable onPress={handlePress} hitSlop={8}>
-      <View style={{ width: iconWidth, height: iconHeight, overflow: 'hidden' }}>
-        <Image
-          source={require('../../public/image-2.png')}
+      <View style={{
+        width: DISPLAY_WIDTH,
+        height: DISPLAY_HEIGHT,
+        overflow: 'hidden',
+      }}>
+        <ImageBackground
+          source={spriteSource}
           style={{
-            width: iconWidth * SPRITE_COLS,
-            height: iconHeight * SPRITE_ROWS,
-            marginLeft: -iconWidth * position.col,
-            marginTop: -iconHeight * position.row,
+            width: scaledSpriteWidth,
+            height: scaledSpriteHeight,
+            marginLeft: offsetX,
+            marginTop: offsetY,
           }}
-          contentFit="fill"
-          cachePolicy="memory-disk"
+          resizeMode="cover"
         />
       </View>
     </Pressable>
