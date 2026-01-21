@@ -101,6 +101,10 @@
 - onGestureStart() immediately cancels any pending autoplay
 - 300ms debounce after swipe to prevent autoplay during rapid swiping
 - recordAutoplayStarted()/recordAutoplayFailed() for gate metric tracking
+- useSwipeStop hook at src/lib/useSwipeStop.ts for instant trailer stop on swipe
+- SwipeCard accepts onGestureStart/onGestureEnd props for trailer integration
+- performance.now() used for precise timing measurement of stop operations
+- Stop operations failing >100ms threshold are recorded as failures to gate
 ---
 
 ## 2026-01-21 - US-007
