@@ -16,6 +16,9 @@
 - getYouTubeTrailerSource(movie) at src/lib/youtube-trailer-source.ts for YouTube embeds
 - YouTube embeds use youtube-nocookie.com for privacy-enhanced playback
 - isVideoEmbeddable(videoId) uses oEmbed API to validate embed availability
+- getAppleTrailerSource(movie) at src/lib/apple-trailer-source.ts for Apple Movie Previews
+- Apple iTunes Search API returns previewUrl for movie trailers (HLS/M4V format)
+- Apple sources return type 'apple' to distinguish from native (type 'native') sources
 
 ---
 
@@ -78,5 +81,19 @@
   - enablejsapi=1 allows JavaScript control of embedded player
   - getTrailer() from trailer.ts provides official trailer lookup with channel priority
   - Embeddability validation prevents showing blocked/unavailable videos
+---
+
+## 2026-01-21 - US-006
+- What was implemented: Apple Movie Previews Integration
+- Files changed: src/lib/apple-trailer-source.ts (new), src/lib/useTrailerSource.ts (updated)
+- **Learnings for future iterations:**
+  - Apple iTunes Search API endpoint: https://itunes.apple.com/search?term={query}&media=movie&entity=movie
+  - previewUrl field contains HLS/M4V video URL for trailer playback
+  - Best match found by scoring title similarity (exact match > contains > word overlap) and year proximity
+  - Apple preview URLs come from domains like video-ssl.itunes.apple.com, is{N}-ssl.mzstatic.com
+  - HEAD request validation can be lenient for Apple URLs - pattern matching is sufficient fallback
+  - transformToHlsUrl() can convert .mp4 to .m4v for better quality
+  - Apple sources return type 'apple' distinct from 'native' type used by other HLS sources
+  - getAppleSourceByTrackId() available for direct track ID lookup via itunes.apple.com/lookup
 ---
 
