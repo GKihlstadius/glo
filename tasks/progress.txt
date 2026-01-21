@@ -10,6 +10,7 @@
 
 - TrailerPlayer persistent player architecture at src/components/TrailerPlayer.tsx
 - TrailerSource type: { type: 'native' | 'youtube' | 'apple', uri: string, startTime?: number, endTime?: number }
+- useTrailerSource(movieId) hook at src/lib/useTrailerSource.ts for fetching trailer sources
 
 ---
 
@@ -22,5 +23,16 @@
   - Visibility controlled via opacity (not mount/unmount) for instant control
   - z-index 100 places player above card stack
   - stopAsync() is called without await for <16ms instant stop requirement
+---
+
+## 2026-01-21 - US-002
+- What was implemented: Source-Agnostic Video Loader
+- Files changed: src/lib/useTrailerSource.ts (new)
+- **Learnings for future iterations:**
+  - useTrailerSource hook uses React Query for data fetching and caching
+  - AsyncStorage used for persistent 7-day TTL cache
+  - Sources checked in priority order: native > YouTube > Apple
+  - Negative results (null) are also cached to avoid repeated lookups
+  - Uses React Query's staleTime and gcTime for in-memory caching
 ---
 
