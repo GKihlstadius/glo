@@ -34,5 +34,7 @@
   - Sources checked in priority order: native > YouTube > Apple
   - Negative results (null) are also cached to avoid repeated lookups
   - Uses React Query's staleTime and gcTime for in-memory caching
+  - getTrailer() from trailer.ts expects full Movie type but only uses movie.id - use createMinimalMovie helper
+  - Re-export TrailerSource type from useTrailerSource for convenience
 ---
 
