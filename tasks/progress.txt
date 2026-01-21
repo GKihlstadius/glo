@@ -11,6 +11,7 @@
 - TrailerPlayer persistent player architecture at src/components/TrailerPlayer.tsx
 - TrailerSource type: { type: 'native' | 'youtube' | 'apple', uri: string, startTime?: number, endTime?: number }
 - useTrailerSource(movieId) hook at src/lib/useTrailerSource.ts for fetching trailer sources
+- TrailerGate module at src/lib/trailer-gate.ts for autoplay stability tracking
 
 ---
 
@@ -36,5 +37,16 @@
   - Uses React Query's staleTime and gcTime for in-memory caching
   - getTrailer() from trailer.ts expects full Movie type but only uses movie.id - use createMinimalMovie helper
   - Re-export TrailerSource type from useTrailerSource for convenience
+---
+
+## 2026-01-21 - US-003
+- What was implemented: Autoplay Gate System
+- Files changed: src/lib/trailer-gate.ts (new)
+- **Learnings for future iterations:**
+  - Gate requires 50 consecutive successes for both autoplay and swipeStop
+  - Session failure is tracked in-memory only (doesn't persist across restarts)
+  - Metrics persist to AsyncStorage but reset on app version update
+  - recordBlinkStop() treats videos stopping within 2 seconds as failures
+  - Gate state can be checked synchronously via isGatePassed()
 ---
 
