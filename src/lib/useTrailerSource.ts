@@ -15,8 +15,8 @@
 import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrailerSource } from '../components/TrailerPlayer';
-import { getTrailer, getYouTubeEmbedUrl } from './trailer';
 import { getNativeTrailerSource } from './native-trailer-source';
+import { getYouTubeTrailerSource } from './youtube-trailer-source';
 import type { Movie } from './types';
 
 // ============================================================================
@@ -148,36 +148,15 @@ function createMinimalMovie(movieId: string): Movie {
 
 /**
  * Get YouTube source for a movie
+ * Uses the dedicated youtube-trailer-source module for:
+ * - youtube-nocookie.com embeds (privacy-enhanced)
+ * - Proper embed configuration (autoplay, mute, playsinline, controls)
+ * - Embeddability validation
  */
 async function getYouTubeSource(movieId: string): Promise<TrailerSource | null> {
-  try {
-    // Use existing trailer system to get YouTube info
-    // Only movie.id is used for KNOWN_TRAILERS lookup
-    const trailerInfo = await getTrailer(
-      createMinimalMovie(movieId),
-      'US',
-      'en'
-    );
-
-    if (!trailerInfo?.videoId) {
-      return null;
-    }
-
-    // Build embed URL with autoplay, muted, inline playback
-    const embedUrl = getYouTubeEmbedUrl(trailerInfo.videoId, {
-      autoplay: true,
-      mute: true,
-      loop: false,
-    });
-
-    return {
-      type: 'youtube',
-      uri: embedUrl,
-      // Duration info could be used for endTime if needed
-    };
-  } catch {
-    return null;
-  }
+  // Use the dedicated YouTube trailer source module
+  // It handles: official channel priority, embed validation, nocookie URLs
+  return getYouTubeTrailerSource(createMinimalMovie(movieId));
 }
 
 /**

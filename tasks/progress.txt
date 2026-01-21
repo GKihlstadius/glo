@@ -13,6 +13,9 @@
 - useTrailerSource(movieId) hook at src/lib/useTrailerSource.ts for fetching trailer sources
 - TrailerGate module at src/lib/trailer-gate.ts for autoplay stability tracking
 - getNativeTrailerSource(movie) at src/lib/native-trailer-source.ts for MP4/HLS sources
+- getYouTubeTrailerSource(movie) at src/lib/youtube-trailer-source.ts for YouTube embeds
+- YouTube embeds use youtube-nocookie.com for privacy-enhanced playback
+- isVideoEmbeddable(videoId) uses oEmbed API to validate embed availability
 
 ---
 
@@ -62,5 +65,18 @@
   - URL validation uses HEAD request to check content-type for video MIME types
   - CDN_PATTERNS array is extensible for future studio-specific CDN integrations
   - Native sources have priority over YouTube/Apple in the trailer source resolution
+---
+
+## 2026-01-21 - US-005
+- What was implemented: YouTube Source Integration
+- Files changed: src/lib/youtube-trailer-source.ts (new), src/lib/useTrailerSource.ts (updated)
+- **Learnings for future iterations:**
+  - youtube-nocookie.com provides privacy-enhanced embeds (no tracking cookies)
+  - YouTube oEmbed API at youtube.com/oembed can check embeddability without API key
+  - Video ID format is 11 characters: letters, numbers, hyphens, underscores
+  - Embed parameters: autoplay=1, mute=1, playsinline=1, controls=0 for clean inline playback
+  - enablejsapi=1 allows JavaScript control of embedded player
+  - getTrailer() from trailer.ts provides official trailer lookup with channel priority
+  - Embeddability validation prevents showing blocked/unavailable videos
 ---
 
