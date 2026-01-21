@@ -8,5 +8,19 @@
 - SwipeCard component at src/components/SwipeCard.tsx handles gestures
 - Spelläge screen at src/app/spellage.tsx
 
+- TrailerPlayer persistent player architecture at src/components/TrailerPlayer.tsx
+- TrailerSource type: { type: 'native' | 'youtube' | 'apple', uri: string, startTime?: number, endTime?: number }
+
+---
+
+## 2026-01-21 - US-001
+- What was implemented: Persistent Video Player Architecture
+- Files changed: src/components/TrailerPlayer.tsx (new)
+- **Learnings for future iterations:**
+  - expo-av Video component is used for native video playback, though it's deprecated in favor of expo-video
+  - The player uses imperative API via forwardRef/useImperativeHandle pattern
+  - Visibility controlled via opacity (not mount/unmount) for instant control
+  - z-index 100 places player above card stack
+  - stopAsync() is called without await for <16ms instant stop requirement
 ---
 

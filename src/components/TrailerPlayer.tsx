@@ -225,7 +225,7 @@ export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
           style={styles.video}
           resizeMode={ResizeMode.COVER}
           onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-          onError={(error) => handleError(error || 'Unknown video error')}
+          onError={() => handleError('Video playback error')}
           isMuted={true}
           shouldPlay={false}
           useNativeControls={false}
