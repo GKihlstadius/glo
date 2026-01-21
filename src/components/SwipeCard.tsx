@@ -35,6 +35,15 @@ interface SwipeCardProps {
     score?: number;
     reason?: string;
   };
+  /**
+   * Called IMMEDIATELY when gesture starts (before any movement).
+   * Used for instant trailer stop integration (US-008).
+   */
+  onGestureStart?: () => void;
+  /**
+   * Called when gesture ends (touch released without completing swipe).
+   */
+  onGestureEnd?: () => void;
 }
 
 type GestureContext = {
@@ -50,6 +59,8 @@ export function SwipeCard({
   countryCode = 'US',
   showDebug = false,
   debugInfo,
+  onGestureStart,
+  onGestureEnd,
 }: SwipeCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -70,10 +81,22 @@ export function SwipeCard({
     onSwipe(direction);
   };
 
+  // Wrapper functions for gesture callbacks to ensure they exist before calling
+  const handleGestureStart = () => {
+    onGestureStart?.();
+  };
+
+  const handleGestureEnd = () => {
+    onGestureEnd?.();
+  };
+
   const gestureHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, GestureContext>({
     onStart: (_, ctx) => {
       ctx.startX = translateX.value;
       ctx.startY = translateY.value;
+      // CRITICAL: Call onGestureStart IMMEDIATELY for instant trailer stop (US-008)
+      // This must happen in the same frame as gesture start (<16ms)
+      runOnJS(handleGestureStart)();
     },
     onActive: (event, ctx) => {
       translateX.value = ctx.startX + event.translationX;
@@ -101,7 +124,8 @@ export function SwipeCard({
         return;
       }
 
-      // Snap back - immediate, physical feel
+      // Snap back - no swipe completed, call gesture end
+      runOnJS(handleGestureEnd)();
       translateX.value = withSpring(0, { damping: 25, stiffness: 400 });
       translateY.value = withSpring(0, { damping: 25, stiffness: 400 });
     },
