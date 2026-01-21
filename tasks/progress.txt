@@ -1,0 +1,12 @@
+## Codebase Patterns
+- Use NativeWind (Tailwind) for styling with cn() helper from src/lib/cn.ts for conditional classes
+- expo-av Video component for native video playback
+- Zustand for local state management (src/lib/store.ts)
+- TMDB API integration in src/lib/tmdb.ts
+- Existing trailer system code in src/lib/trailer.ts and src/lib/trailer-system.ts (currently disabled)
+- MovieCard component at src/components/MovieCard.tsx
+- SwipeCard component at src/components/SwipeCard.tsx handles gestures
+- Spelläge screen at src/app/spellage.tsx
+
+---
+

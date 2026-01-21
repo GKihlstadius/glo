@@ -1,0 +1,438 @@
+{
+  "project": "Glo",
+  "branchName": "ralph/glo-production",
+  "description": "Glo Production Release - Netflix-like trailers, Spelläge rebuild, algorithm refinement",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Persistent Video Player Architecture",
+      "description": "As a developer, I need a single persistent video player that lives above the card stack so that we can swap sources without mount/unmount cycles.",
+      "acceptanceCriteria": [
+        "Create TrailerPlayer component that renders ONE video player instance",
+        "Player is positioned absolute, above card stack in z-index",
+        "Player visibility controlled via opacity (0 = hidden, 1 = visible)",
+        "Player is NEVER unmounted during feed usage",
+        "Export imperative API: play(source), stop(), setVisible(bool)",
+        "Player works with expo-av Video component",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Source-Agnostic Video Loader",
+      "description": "As a developer, I need a unified video source interface so that any source (MP4, HLS, YouTube, Apple) can be loaded the same way.",
+      "acceptanceCriteria": [
+        "Create TrailerSource type: { type: 'native' | 'youtube' | 'apple', uri: string, startTime?: number, endTime?: number }",
+        "Create useTrailerSource(movieId) hook that returns best available source",
+        "Hook checks all source types and returns the first valid one",
+        "Sources are cached per movie (7-day TTL)",
+        "If no source available, returns null (triggers poster fallback)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Autoplay Gate System",
+      "description": "As a developer, I need an autoplay gate that tracks success/failure so trailers only enable when proven stable.",
+      "acceptanceCriteria": [
+        "Create TrailerGate module in src/lib/trailer-gate.ts",
+        "Track metrics: autoplaySuccesses, autoplayFailures, swipeStopSuccesses, swipeStopFailures, blinkStopCount",
+        "Gate passes when: 50 consecutive autoplay successes AND 50 consecutive swipe stops AND 0 blink-stops",
+        "Gate fails permanently for session if ANY failure occurs",
+        "Export isGatePassed(), recordSuccess(type), recordFailure(type), resetGate()",
+        "Metrics persisted to AsyncStorage (reset on app update)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Native Video Source Integration (MP4/HLS)",
+      "description": "As a user, I want trailers to play from native video sources (MP4/HLS) so I get the smoothest possible experience.",
+      "acceptanceCriteria": [
+        "Create getNativeTrailerSource(movie) function",
+        "Check TMDB for video files (if API provides direct URLs)",
+        "Check known CDN patterns for movie trailers",
+        "Validate source plays correctly before returning",
+        "Return null if no valid native source found",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "YouTube Source Integration",
+      "description": "As a developer, I need YouTube as a fallback trailer source with proper embed handling.",
+      "acceptanceCriteria": [
+        "Create getYouTubeTrailerSource(movie) function",
+        "Search YouTube for official trailer (priority: studio channels)",
+        "Use youtube-nocookie.com embed URL",
+        "Configure for: autoplay=1, mute=1, playsinline=1, controls=0",
+        "Validate video is embeddable before returning",
+        "Return null if blocked or unavailable",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Apple Movie Previews Integration",
+      "description": "As a developer, I need Apple Movie Previews as a trailer source option.",
+      "acceptanceCriteria": [
+        "Create getAppleTrailerSource(movie) function",
+        "Query Apple iTunes API for movie preview URLs",
+        "Extract HLS stream URL from response",
+        "Validate stream is playable",
+        "Return null if not available",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Autoplay Delay & Trigger Logic",
+      "description": "As a user, I want trailers to autoplay after a short delay when I'm viewing a movie card, so the experience feels calm and intentional.",
+      "acceptanceCriteria": [
+        "Autoplay triggers 900-1400ms after card becomes stable (random within range)",
+        "Autoplay ONLY triggers if: card is top of stack, no gesture active, gate passed",
+        "Autoplay cancels immediately if swipe gesture starts",
+        "Autoplay cancels if card loses focus",
+        "No autoplay during rapid swiping (debounce)",
+        "Record success/failure to gate after each attempt",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Swipe-Stop Integration",
+      "description": "As a user, I want the trailer to stop INSTANTLY when I start swiping, so video never interferes with gestures.",
+      "acceptanceCriteria": [
+        "Hook into PanGestureHandler onStart event",
+        "Call TrailerPlayer.stop() synchronously on gesture start",
+        "Stop must happen in <16ms (same frame)",
+        "No audio bleed after stop",
+        "Record swipe-stop success/failure to gate",
+        "If stop takes >100ms, record as failure",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Poster Fallback Behavior",
+      "description": "As a user, I want to see the movie poster if trailer fails, with no error messages or broken states.",
+      "acceptanceCriteria": [
+        "If trailer source is null, show poster only (current behavior)",
+        "If trailer fails to load, hide player and show poster",
+        "If trailer stops within 2 seconds of starting, record as blink-stop failure",
+        "No error UI, no retry buttons, no loading spinners longer than 500ms",
+        "Poster is ALWAYS visible underneath player (player overlays poster)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Trailer System Integration Test",
+      "description": "As a developer, I need to verify the entire trailer system works end-to-end before enabling it.",
+      "acceptanceCriteria": [
+        "Create test script that simulates 50 autoplay cycles",
+        "Verify all 50 succeed without blink-stops",
+        "Simulate 50 swipe-stop events",
+        "Verify all 50 stop instantly",
+        "Only enable trailer system if ALL tests pass",
+        "Log results to expo.log for debugging",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Spelläge Entry Flow Redesign",
+      "description": "As a user, I want a beautiful entry screen for Spelläge that makes me excited to play.",
+      "acceptanceCriteria": [
+        "Redesign /spellage screen with two clear options: Solo / Together",
+        "Each option has icon, title, and one-line description",
+        "Visual design feels premium and fun (not utilitarian)",
+        "Smooth entrance animation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Together Mode - Session Creation",
+      "description": "As a user, I want to create a Together session and get a shareable code/link.",
+      "acceptanceCriteria": [
+        "Together button creates new session with unique 6-character code",
+        "Session stored in Zustand with: id, code, hostDeviceId, participants[], movies[], currentRound, totalRounds",
+        "Generate shareable link: glo://join/{code} (deep link)",
+        "Generate QR code for the link",
+        "Show waiting screen with code prominently displayed",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Together Mode - Join via Link/QR",
+      "description": "As a user, I want to join a friend's session by scanning QR or tapping a link.",
+      "acceptanceCriteria": [
+        "Handle deep link glo://join/{code}",
+        "Manual code entry as fallback",
+        "Validate code exists and session is waiting",
+        "Add device to session participants",
+        "Navigate to session screen when joined",
+        "Show error if code invalid or session full/started",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Together Mode - Synchronized Feed",
+      "description": "As a user in Together mode, I want to see the exact same movies in the same order as my partner.",
+      "acceptanceCriteria": [
+        "Session stores pre-generated movie list (7 movies for 7 rounds)",
+        "Movie list generated when session created (host's region)",
+        "All participants receive same list in same order",
+        "Swipes are independent (each player swipes their own copy)",
+        "Sync swipe results to session state",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Blind Choice UI",
+      "description": "As a user in Spelläge, I want movie titles hidden so I judge purely by poster/trailer.",
+      "acceptanceCriteria": [
+        "MovieCard accepts blindMode prop",
+        "When blindMode=true: hide title, year, and all metadata",
+        "Show only: poster, streaming icons, action buttons",
+        "Reveal animation when round ends (title fades in)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Round-Based Gameplay",
+      "description": "As a user, I want Spelläge to have clear rounds (5-7) with progress indication.",
+      "acceptanceCriteria": [
+        "Session has totalRounds (default 7) and currentRound",
+        "Progress indicator shows Round X of Y",
+        "Each round = one movie to swipe",
+        "Round advances when all participants have swiped",
+        "Game ends after final round",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Match Detection & Celebration",
+      "description": "As a user, I want to see a celebration when my partner and I both like the same movie.",
+      "acceptanceCriteria": [
+        "Detect match: both participants swiped like on same movie",
+        "Show match celebration overlay (confetti, animation)",
+        "Display matched movie with title revealed",
+        "Play haptic feedback (success pattern)",
+        "Match can happen on any round (game continues)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "End Game Results Screen",
+      "description": "As a user, I want to see final results after all rounds complete.",
+      "acceptanceCriteria": [
+        "Show all matched movies (if any)",
+        "Show each player's likes",
+        "If 1+ match: show Winner with trailer autoplay (if gate passes)",
+        "If no matches: show encouraging message + closest picks",
+        "Play Again and Exit buttons",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Solo Mode Update",
+      "description": "As a user, I want Solo mode to use the same round-based, blind-choice mechanics.",
+      "acceptanceCriteria": [
+        "Solo mode uses same 7-round structure",
+        "Blind choice enabled",
+        "After 7 rounds, randomly select winner from likes",
+        "Show winner with cinematic reveal",
+        "Play trailer if gate passes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Exposure Memory Enhancement",
+      "description": "As a user, I don't want to see movies I've already swiped on.",
+      "acceptanceCriteria": [
+        "Never show liked movies again in regular feed",
+        "Never show saved movies again in regular feed",
+        "Strong cooldown on passed movies (24-hour minimum)",
+        "Hard avoidance of immediate repeats (last 50 movies)",
+        "Exposure data persisted across sessions",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Taste Signal Refinement",
+      "description": "As a developer, I need to improve how taste signals influence recommendations.",
+      "acceptanceCriteria": [
+        "Likes: strong positive signal for genre, director, cast",
+        "Saves: stronger signal than likes (intent to watch)",
+        "Passes: weak negative signal (don't over-penalize)",
+        "Trailer engagement: minor positive signal if watched >10s",
+        "Spelläge matches: strongest signal (shared preference)",
+        "Decay old signals over time (30-day half-life)",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Freshness Scoring",
+      "description": "As a user, I want to see fresh content mixed into my feed.",
+      "acceptanceCriteria": [
+        "Boost score for: released in last 90 days",
+        "Boost score for: recently added to streaming in user's region",
+        "Boost score for: trending in user's region",
+        "Freshness contributes 15-20% of final score",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Diversity Control Enhancement",
+      "description": "As a user, I don't want to see the same type of movie repeatedly.",
+      "acceptanceCriteria": [
+        "Max 2 same primary genre in a row",
+        "Max 3 same era in a row",
+        "Max 2 same director in a row",
+        "Penalty for same mood back-to-back",
+        "Diversity applied after scoring, before final selection",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Infinite Feed Guarantee",
+      "description": "As a user, I never want to see 'no more movies' or an empty feed.",
+      "acceptanceCriteria": [
+        "Fallback ladder: fresh → cooldown-expired → all-time → any",
+        "If all movies exhausted: reset exposure memory for lowest-priority bucket",
+        "Feed ALWAYS returns a movie (even if repeated)",
+        "Log fallback level for analytics",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Streaming Icons Verification",
+      "description": "As a developer, I need to verify streaming icons match the spec exactly.",
+      "acceptanceCriteria": [
+        "Icons are raw brand logos (no wrappers, pills, backgrounds)",
+        "Icons are non-interactive (no onPress handlers)",
+        "Icons only shown if movie confirmed available in region",
+        "Uses existing streaming data (no changes needed)",
+        "Typecheck passes",
+        "Verify in browser matches reference image"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Final UX Audit",
+      "description": "As a user, I want the entire app to feel calm, effortless, and polished.",
+      "acceptanceCriteria": [
+        "No loading spinners visible for more than 300ms",
+        "All animations feel smooth (60fps)",
+        "No janky transitions between screens",
+        "All text is readable and well-spaced",
+        "No debug logs visible in production",
+        "Error states are graceful (no crashes, no ugly messages)",
+        "Typecheck passes",
+        "Full app walkthrough in browser"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
