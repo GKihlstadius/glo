@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrailerSource } from '../components/TrailerPlayer';
 import { getNativeTrailerSource } from './native-trailer-source';
 import { getYouTubeTrailerSource } from './youtube-trailer-source';
+import { getAppleTrailerSource } from './apple-trailer-source';
 import type { Movie } from './types';
 
 // ============================================================================
@@ -161,12 +162,20 @@ async function getYouTubeSource(movieId: string): Promise<TrailerSource | null> 
 
 /**
  * Get Apple Movie Previews source for a movie
- * Currently returns null - will be implemented in US-006
+ * Uses getAppleTrailerSource to query iTunes API for HLS preview URLs
  */
-async function getAppleSource(_movieId: string): Promise<TrailerSource | null> {
-  // US-006 will implement Apple source fetching
-  // For now, return null to fall through
-  return null;
+async function getAppleSource(movieId: string): Promise<TrailerSource | null> {
+  // Create minimal movie for Apple source lookup
+  // Note: Apple search requires movie title and year for accurate matching
+  // With only movieId, we have limited data for search
+  const movie = createMinimalMovie(movieId);
+
+  // Only try if we have valid tmdbId (though results will be limited without title/year)
+  if (movie.tmdbId === 0) {
+    return null;
+  }
+
+  return getAppleTrailerSource(movie);
 }
 
 // ============================================================================
