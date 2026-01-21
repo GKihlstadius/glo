@@ -12,6 +12,7 @@
 - TrailerSource type: { type: 'native' | 'youtube' | 'apple', uri: string, startTime?: number, endTime?: number }
 - useTrailerSource(movieId) hook at src/lib/useTrailerSource.ts for fetching trailer sources
 - TrailerGate module at src/lib/trailer-gate.ts for autoplay stability tracking
+- getNativeTrailerSource(movie) at src/lib/native-trailer-source.ts for MP4/HLS sources
 
 ---
 
@@ -48,5 +49,18 @@
   - Metrics persist to AsyncStorage but reset on app version update
   - recordBlinkStop() treats videos stopping within 2 seconds as failures
   - Gate state can be checked synchronously via isGatePassed()
+---
+
+## 2026-01-21 - US-004
+- What was implemented: Native Video Source Integration (MP4/HLS)
+- Files changed: src/lib/native-trailer-source.ts (new), src/lib/useTrailerSource.ts (updated)
+- **Learnings for future iterations:**
+  - TMDB API does NOT provide direct MP4/HLS URLs - only YouTube/Vimeo video keys
+  - Apple iTunes Search API can be used to find movie preview URLs (HLS streams)
+  - The useTrailerSource hook only receives movieId, not full Movie object - limits native source lookup
+  - For full Apple iTunes search, need movie title and year (createMinimalMovie has empty values)
+  - URL validation uses HEAD request to check content-type for video MIME types
+  - CDN_PATTERNS array is extensible for future studio-specific CDN integrations
+  - Native sources have priority over YouTube/Apple in the trailer source resolution
 ---
 
