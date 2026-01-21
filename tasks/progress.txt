@@ -95,5 +95,26 @@
   - transformToHlsUrl() can convert .mp4 to .m4v for better quality
   - Apple sources return type 'apple' distinct from 'native' type used by other HLS sources
   - getAppleSourceByTrackId() available for direct track ID lookup via itunes.apple.com/lookup
+- useAutoplay(options) hook at src/lib/useAutoplay.ts for autoplay timing and triggering
+- Random delay between 900-1400ms per spec for natural autoplay feel
+- Autoplay conditions: isTopCard + hasTrailerSource + gatePassed + !isGestureActive
+- onGestureStart() immediately cancels any pending autoplay
+- 300ms debounce after swipe to prevent autoplay during rapid swiping
+- recordAutoplayStarted()/recordAutoplayFailed() for gate metric tracking
+---
+
+## 2026-01-21 - US-007
+- What was implemented: Autoplay Delay & Trigger Logic
+- Files changed: src/lib/useAutoplay.ts (new)
+- **Learnings for future iterations:**
+  - useAutoplay hook handles WHEN to play, not the actual playback
+  - Autoplay conditions checked: isTopCard, hasTrailerSource, gatePassed, !isGestureActive
+  - Random delay (900-1400ms) prevents mechanical feel
+  - Debounce prevents autoplay during rapid swiping (300ms after last swipe)
+  - Gate checked twice: once at start, once after delay (could fail during delay)
+  - onGestureStart() must be called from gesture handler's onStart for instant cancellation
+  - hasAutoplayedRef prevents multiple triggers per card
+  - reset() should be called when movie changes to allow new autoplay
+  - State changes use functional updates to avoid stale closures
 ---
 
