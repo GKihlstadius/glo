@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TrailerSource } from '../components/TrailerPlayer';
 import { getTrailer, getYouTubeEmbedUrl } from './trailer';
+import { getNativeTrailerSource } from './native-trailer-source';
 import type { Movie } from './types';
 
 // ============================================================================
@@ -101,12 +102,24 @@ export async function clearCachedSource(movieId: string): Promise<void> {
 
 /**
  * Get native video source (MP4/HLS) for a movie
- * Currently returns null - will be implemented in US-004
+ * Uses getNativeTrailerSource to check Apple Movie Trailers, TMDB, and CDN patterns
+ *
+ * Note: With only movieId, native sources are limited since Apple iTunes search
+ * requires movie title and year. Returns null to fall through to YouTube/Apple sources.
+ * For full native source support, use getNativeTrailerSource directly with Movie object.
  */
-async function getNativeSource(_movieId: string): Promise<TrailerSource | null> {
-  // US-004 will implement native source fetching
-  // For now, return null to fall through to other sources
-  return null;
+async function getNativeSource(movieId: string): Promise<TrailerSource | null> {
+  // Create minimal movie for native source lookup
+  // Note: This has empty title/year, so Apple iTunes search won't work
+  // Full Movie object is needed for proper native source lookup
+  const movie = createMinimalMovie(movieId);
+
+  // Only try if we have a valid tmdbId (can check CDN patterns at least)
+  if (movie.tmdbId === 0) {
+    return null;
+  }
+
+  return getNativeTrailerSource(movie);
 }
 
 /**
