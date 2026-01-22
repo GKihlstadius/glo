@@ -6,12 +6,17 @@ import { X, Bookmark, Heart, Gamepad2, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { MovieCard } from '@/components/MovieCard';
 import { StreamingRow } from '@/components/StreamingIcon';
+import { TrailerPlayer, TrailerPlayerRef } from '@/components/TrailerPlayer';
 import { FeedItem } from '@/lib/types';
 import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
 import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers } from '@/lib/movies';
 import { prefetchMovieImages } from '@/lib/image-cache';
+import { useTrailerSource } from '@/lib/useTrailerSource';
+import { useAutoplay } from '@/lib/useAutoplay';
+import { useSwipeStop } from '@/lib/useSwipeStop';
+import { isGatePassed } from '@/lib/trailer-gate';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +35,57 @@ export default function HomeScreen() {
 
   // Feed engine reference
   const feedEngineRef = useRef<FeedEngine | null>(null);
+
+  // ========================================================================
+  // TRAILER SYSTEM
+  // ========================================================================
+  const trailerPlayerRef = useRef<TrailerPlayerRef>(null);
+  
+  // Get trailer source for current movie
+  const { source: trailerSource, isLoading: trailerLoading } = useTrailerSource(
+    currentItem?.movie ?? null
+  );
+
+  // Swipe-stop integration - stops trailer instantly when swiping
+  const swipeStop = useSwipeStop({
+    playerRef: trailerPlayerRef,
+    onStopped: () => {
+      // Trailer stopped by swipe
+    },
+  });
+
+  // Autoplay control - handles timing and gate checks
+  const autoplay = useAutoplay({
+    isTopCard: true,
+    movieId: currentItem?.movie?.id ?? null,
+    hasTrailerSource: !!trailerSource && !trailerLoading,
+    onShouldPlay: () => {
+      // Time to play trailer!
+      if (trailerSource && trailerPlayerRef.current) {
+        trailerPlayerRef.current.play(trailerSource);
+        autoplay.recordAutoplayStarted();
+      }
+    },
+    onCancelled: () => {
+      // Autoplay was cancelled (gesture started)
+    },
+    disabled: !isGatePassed(), // Disable if gate hasn't passed
+  });
+
+  // Handle trailer playback callbacks
+  const handleTrailerPlaybackStart = useCallback(() => {
+    // Trailer started playing
+  }, []);
+
+  const handleTrailerPlaybackEnd = useCallback(() => {
+    // Trailer finished
+  }, []);
+
+  const handleTrailerError = useCallback((error: string) => {
+    // Trailer failed - silently fall back to poster
+    console.log('[Trailer] Error:', error);
+    autoplay.recordAutoplayFailed();
+  }, [autoplay]);
 
   // Initialize feed engine
   useEffect(() => {
@@ -73,6 +129,10 @@ export default function HomeScreen() {
   const handleSwipe = useCallback((direction: 'left' | 'right' | 'up') => {
     if (!currentItem || !feedEngineRef.current) return;
 
+    // Stop trailer immediately on swipe
+    swipeStop.onSwipeStart();
+    autoplay.onSwipeComplete();
+
     const movie = currentItem.movie;
 
     if (direction === 'right') {
@@ -93,9 +153,12 @@ export default function HomeScreen() {
     const newNext = feedEngineRef.current.getNext();
     setNextItem(newNext);
 
+    // Reset autoplay for new card
+    autoplay.reset();
+
     // Prefetch more images periodically
     prefetchMore();
-  }, [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic, prefetchMore]);
+  }, [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic, prefetchMore, swipeStop, autoplay]);
 
   // Action handlers for bottom bar
   const handlePass = useCallback(() => {
@@ -134,12 +197,27 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          <MovieCard
-            key={currentItem.movie.id}
-            movie={currentItem.movie}
-            onSwipe={handleSwipe}
-            haptic={haptic}
-          />
+          <>
+            <MovieCard
+              key={currentItem.movie.id}
+              movie={currentItem.movie}
+              onSwipe={handleSwipe}
+              haptic={haptic}
+              onGestureStart={autoplay.onGestureStart}
+              onGestureEnd={autoplay.onGestureEnd}
+            />
+            {/* Trailer Player - only renders when trailer source is available and gate passed */}
+            {trailerSource && isGatePassed() && autoplay.state.shouldPlay && (
+              <View style={styles.trailerContainer}>
+                <TrailerPlayer
+                  ref={trailerPlayerRef}
+                  onPlaybackStart={handleTrailerPlaybackStart}
+                  onPlaybackEnd={handleTrailerPlaybackEnd}
+                  onError={handleTrailerError}
+                />
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -219,6 +297,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 8,
     marginTop: 4,
+  },
+  trailerContainer: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   bottomSection: {
     paddingTop: 8,

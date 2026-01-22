@@ -236,25 +236,72 @@ export interface UseTrailerSourceResult {
 }
 
 /**
+ * Resolve trailer source using full Movie object (better results)
+ */
+async function resolveTrailerSourceWithMovie(movie: Movie): Promise<TrailerSource | null> {
+  const movieId = movie.id;
+  
+  // 1. Check cache first
+  const cached = await getCachedSource(movieId);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  // 2. Try native source (Apple iTunes with full movie data)
+  const nativeSource = await getNativeTrailerSource(movie);
+  if (nativeSource) {
+    await setCachedSource(movieId, nativeSource);
+    return nativeSource;
+  }
+
+  // 3. Try YouTube with full movie data
+  const youtubeSource = await getYouTubeTrailerSource(movie);
+  if (youtubeSource) {
+    await setCachedSource(movieId, youtubeSource);
+    return youtubeSource;
+  }
+
+  // 4. Try Apple with full movie data
+  const appleSource = await getAppleTrailerSource(movie);
+  if (appleSource) {
+    await setCachedSource(movieId, appleSource);
+    return appleSource;
+  }
+
+  // 5. No source available - cache negative result
+  await setCachedSource(movieId, null);
+  return null;
+}
+
+/**
  * Hook to get the best available trailer source for a movie
  *
- * @param movieId - The movie ID to get trailer source for
+ * @param movie - The movie object (or just movieId for backwards compat)
  * @returns The best available source or null if none available
  *
  * @example
  * ```tsx
- * const { source, isLoading } = useTrailerSource(movie.id);
+ * const { source, isLoading } = useTrailerSource(movie);
  *
  * if (source) {
  *   trailerPlayer.play(source);
  * }
  * ```
  */
-export function useTrailerSource(movieId: string | null): UseTrailerSourceResult {
+export function useTrailerSource(movie: Movie | string | null): UseTrailerSourceResult {
+  // Handle both Movie object and string movieId
+  const movieId = movie ? (typeof movie === 'string' ? movie : movie.id) : null;
+  const movieObj = movie && typeof movie !== 'string' ? movie : null;
+  
   const query = useQuery({
     queryKey: ['trailerSource', movieId],
     queryFn: async () => {
       if (!movieId) return null;
+      
+      // Use full Movie object if available for better search results
+      if (movieObj) {
+        return resolveTrailerSourceWithMovie(movieObj);
+      }
       return resolveTrailerSource(movieId);
     },
     enabled: !!movieId,

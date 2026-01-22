@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,43 +20,27 @@ import * as Haptics from 'expo-haptics';
 import { Movie } from '@/lib/types';
 import { SWIPE, COLORS } from '@/lib/constants';
 import { PLACEHOLDER_BLUR_HASH, IMAGE_TRANSITION } from '@/lib/image-cache';
-import { getTrailer, TrailerInfo } from '@/lib/trailer';
-import { YouTubePlayer, YouTubePlayerRef, YT_PLAYER_STATE } from './YouTubePlayer';
-import {
-  areTrailersEnabled,
-  recordAutoplaySuccess,
-  recordAutoplayFailure,
-  recordSwipeStopSuccess,
-  markGateFailed,
-  DEFAULT_PLAYBACK_CONFIG,
-} from '@/lib/trailer-system';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ============================================================================
-// TRAILER PLAYBACK — DISABLED
+// MOVIE CARD — Pure Poster Component
 // ============================================================================
-// Trailers are completely disabled until the system is rebuilt.
-// Posters only. No autoplay. No inline video.
+// This component handles ONLY the poster display and swipe gestures.
+// Trailer playback is handled by the persistent TrailerPlayer in index.tsx.
+// See US-001 through US-008 for new trailer architecture.
 // ============================================================================
-
-// Autoplay delay range per spec
-const AUTOPLAY_DELAY_MIN = 900;
-const AUTOPLAY_DELAY_MAX = 1400;
-
-// Preview duration
-const PREVIEW_DURATION = DEFAULT_PLAYBACK_CONFIG.previewDurationSeconds;
 
 interface MovieCardProps {
   movie: Movie;
   onSwipe: (direction: 'left' | 'right' | 'up') => void;
   haptic?: boolean;
-  isActive?: boolean; // Is this the top card (should autoplay)?
-  showTrailerOnWin?: boolean; // For Spelläge match reveal
-  onTrailerEngagement?: (duration: number) => void;
   // Spelläge blind choice mode
   blindMode?: boolean; // Hide title/year until reveal
   isRevealed?: boolean; // Show title after like/save
+  // Gesture callbacks for trailer control (new persistent player system)
+  onGestureStart?: () => void;
+  onGestureEnd?: () => void;
 }
 
 type GestureContext = {
@@ -68,202 +52,13 @@ export function MovieCard({
   movie,
   onSwipe,
   haptic = true,
-  isActive = true,
-  showTrailerOnWin = false,
-  onTrailerEngagement,
   blindMode = false,
   isRevealed = false,
+  onGestureStart,
+  onGestureEnd,
 }: MovieCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
-
-  // Player ref for synchronous control
-  const playerRef = useRef<YouTubePlayerRef>(null);
-
-  // Trailer state
-  const [trailer, setTrailer] = useState<TrailerInfo | null>(null);
-  const [trailerError, setTrailerError] = useState(false);
-  const [isPlayerMounted, setIsPlayerMounted] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [trailersEnabled, setTrailersEnabled] = useState(areTrailersEnabled());
-
-  // Autoplay tracking
-  const autoplayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const playbackStartTime = useRef<number>(0);
-  const hasAutoplayedRef = useRef(false);
-
-  // Check if trailers are enabled via delivery gates
-  useEffect(() => {
-    setTrailersEnabled(areTrailersEnabled());
-  }, []);
-
-  // Load trailer data on mount (pre-fetch for readiness)
-  useEffect(() => {
-    console.log('[TRAILER] Loading trailer for movie:', movie.id, movie.title, 'trailersEnabled:', trailersEnabled);
-    if (!trailersEnabled) {
-      console.log('[TRAILER] Trailers disabled, skipping');
-      return;
-    }
-
-    getTrailer(movie).then((t) => {
-      console.log('[TRAILER] Got trailer data:', t?.videoId || 'null');
-      setTrailer(t);
-      // Mount player immediately after getting trailer info
-      if (t) {
-        console.log('[TRAILER] Mounting player for video:', t.videoId);
-        setIsPlayerMounted(true);
-      }
-    }).catch((err) => {
-      console.log('[TRAILER] Error loading trailer:', err);
-      setTrailer(null);
-      setTrailerError(true);
-    });
-  }, [movie.id, trailersEnabled]);
-
-  // ============================================================================
-  // NETFLIX-STYLE AUTOPLAY: Delayed autoplay when card becomes active
-  // ============================================================================
-  useEffect(() => {
-    // Only autoplay if:
-    // - Card is active (top of stack)
-    // - Trailers are enabled (gates pass)
-    // - We have a trailer
-    // - Player is mounted and ready
-    // - Haven't already autoplayed for this card
-    // - Not in Spelläge win mode (different trigger)
-    console.log('[TRAILER] Autoplay check - isActive:', isActive, 'trailersEnabled:', trailersEnabled, 'trailer:', !!trailer, 'trailerError:', trailerError, 'isPlayerMounted:', isPlayerMounted, 'hasAutoplayed:', hasAutoplayedRef.current);
-
-    if (
-      !isActive ||
-      !trailersEnabled ||
-      !trailer ||
-      trailerError ||
-      !isPlayerMounted ||
-      hasAutoplayedRef.current ||
-      showTrailerOnWin
-    ) {
-      console.log('[TRAILER] Autoplay conditions not met, skipping');
-      return;
-    }
-
-    console.log('[TRAILER] Starting autoplay sequence for:', trailer.videoId);
-
-    // Wait for player to be ready, then start autoplay delay
-    const checkAndAutoplay = () => {
-      const isReady = playerRef.current?.isReady();
-      console.log('[TRAILER] Checking if player ready:', isReady);
-
-      if (!isReady) {
-        // Player not ready, retry in 100ms
-        autoplayTimeoutRef.current = setTimeout(checkAndAutoplay, 100);
-        return;
-      }
-
-      // Calculate random delay (900-1400ms)
-      const delay = AUTOPLAY_DELAY_MIN + Math.random() * (AUTOPLAY_DELAY_MAX - AUTOPLAY_DELAY_MIN);
-      console.log('[TRAILER] Player ready, scheduling autoplay with delay:', delay);
-
-      // Schedule autoplay
-      autoplayTimeoutRef.current = setTimeout(() => {
-        // Final check before playing
-        if (!playerRef.current?.isReady() || hasAutoplayedRef.current) {
-          console.log('[TRAILER] Final check failed, not playing');
-          return;
-        }
-
-        console.log('[TRAILER] Playing trailer now!');
-        // Start playback
-        playerRef.current.play();
-        hasAutoplayedRef.current = true;
-        playbackStartTime.current = Date.now();
-        setIsPlaying(true);
-        recordAutoplaySuccess();
-
-        // Auto-stop after preview duration
-        previewTimeoutRef.current = setTimeout(() => {
-          stopPlayback();
-        }, PREVIEW_DURATION * 1000);
-      }, delay);
-    };
-
-    // Small initial delay to ensure card is "settled"
-    autoplayTimeoutRef.current = setTimeout(checkAndAutoplay, 100);
-
-    return () => {
-      if (autoplayTimeoutRef.current) {
-        clearTimeout(autoplayTimeoutRef.current);
-      }
-    };
-  }, [isActive, trailersEnabled, trailer, trailerError, isPlayerMounted, showTrailerOnWin]);
-
-  // Spelläge match reveal - play trailer when showTrailerOnWin becomes true
-  useEffect(() => {
-    if (showTrailerOnWin && trailer && !trailerError && playerRef.current?.isReady()) {
-      const timer = setTimeout(() => {
-        playerRef.current?.play();
-        setIsPlaying(true);
-        playbackStartTime.current = Date.now();
-
-        if (haptic) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-
-        // Auto-stop after preview duration
-        previewTimeoutRef.current = setTimeout(() => {
-          stopPlayback();
-        }, PREVIEW_DURATION * 1000);
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [showTrailerOnWin, trailer, trailerError, haptic]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (autoplayTimeoutRef.current) {
-        clearTimeout(autoplayTimeoutRef.current);
-      }
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-      }
-      // Stop playback cleanly when card unmounts
-      playerRef.current?.stop();
-    };
-  }, []);
-
-  // ============================================================================
-  // STOP PLAYBACK — Must be INSTANT
-  // ============================================================================
-  const stopPlayback = useCallback(() => {
-    // Clear any pending timeouts
-    if (autoplayTimeoutRef.current) {
-      clearTimeout(autoplayTimeoutRef.current);
-      autoplayTimeoutRef.current = null;
-    }
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current);
-      previewTimeoutRef.current = null;
-    }
-
-    // Stop player immediately
-    playerRef.current?.stop();
-
-    // Track engagement
-    if (playbackStartTime.current > 0) {
-      const duration = Date.now() - playbackStartTime.current;
-      onTrailerEngagement?.(duration);
-      playbackStartTime.current = 0;
-    }
-
-    // Record successful stop for gate metrics
-    if (isPlaying) {
-      recordSwipeStopSuccess();
-    }
-
-    setIsPlaying(false);
-  }, [isPlaying, onTrailerEngagement]);
 
   const triggerHaptic = useCallback(() => {
     if (haptic) {
@@ -272,52 +67,30 @@ export function MovieCard({
   }, [haptic]);
 
   const handleSwipeComplete = useCallback((direction: 'left' | 'right' | 'up') => {
-    // STOP TRAILER IMMEDIATELY on swipe
-    stopPlayback();
     triggerHaptic();
     onSwipe(direction);
-  }, [stopPlayback, triggerHaptic, onSwipe]);
-
-  // Handle trailer errors silently - just show poster
-  const handleTrailerError = useCallback(() => {
-    setTrailerError(true);
-    setIsPlaying(false);
-    recordAutoplayFailure();
-    markGateFailed();
-    // No error UI - poster remains visible
-  }, []);
-
-  // Handle playback blocked (geo/embed restrictions)
-  const handlePlaybackBlocked = useCallback(() => {
-    setTrailerError(true);
-    setIsPlaying(false);
-    recordAutoplayFailure();
-    // Trailer skipped, poster remains, no placeholder
-  }, []);
-
-  // Handle player state changes
-  const handleStateChange = useCallback((state: number) => {
-    if (state === YT_PLAYER_STATE.PLAYING) {
-      setIsPlaying(true);
-    } else if (state === YT_PLAYER_STATE.ENDED || state === YT_PLAYER_STATE.PAUSED) {
-      setIsPlaying(false);
-    }
-  }, []);
-
-  // Handle player ready
-  const handlePlayerReady = useCallback(() => {
-    // Player is ready - autoplay logic handles the rest
-  }, []);
+  }, [triggerHaptic, onSwipe]);
 
   // ============================================================================
-  // PAN GESTURE — Stop trailer on ANY gesture start
+  // PAN GESTURE — Notify parent for trailer control
   // ============================================================================
+  
+  // Wrapper to call onGestureStart safely
+  const handleGestureStart = useCallback(() => {
+    onGestureStart?.();
+  }, [onGestureStart]);
+
+  // Wrapper to call onGestureEnd safely
+  const handleGestureEnd = useCallback(() => {
+    onGestureEnd?.();
+  }, [onGestureEnd]);
+
   const gestureHandler = useAnimatedGestureHandler<PanGestureHandlerGestureEvent, GestureContext>({
     onStart: (_, ctx) => {
       ctx.startX = translateX.value;
       ctx.startY = translateY.value;
-      // STOP TRAILER IMMEDIATELY on swipe start
-      runOnJS(stopPlayback)();
+      // Notify parent to stop trailer
+      runOnJS(handleGestureStart)();
     },
     onActive: (event, ctx) => {
       translateX.value = ctx.startX + event.translationX;
@@ -345,9 +118,10 @@ export function MovieCard({
         return;
       }
 
-      // Snap back
+      // Snap back - gesture ended without swipe, restart autoplay
       translateX.value = withSpring(0, { damping: 25, stiffness: 400 });
       translateY.value = withSpring(0, { damping: 25, stiffness: 400 });
+      runOnJS(handleGestureEnd)();
     },
   });
 
@@ -371,9 +145,6 @@ export function MovieCard({
   // Determine if title should be shown
   const showTitle = !blindMode || isRevealed;
 
-  // Can show trailer overlay when playing
-  const showTrailerOverlay = isPlaying && trailer && !trailerError;
-
   return (
     <PanGestureHandler onGestureEvent={gestureHandler}>
       <Animated.View className="flex-1" style={cardStyle}>
@@ -387,23 +158,6 @@ export function MovieCard({
             transition={IMAGE_TRANSITION}
             cachePolicy="memory-disk"
           />
-
-          {/* Pre-mounted YouTube player (hidden until playing) */}
-          {isPlayerMounted && trailer && !trailerError && (
-            <View style={[styles.trailerOverlay, { opacity: showTrailerOverlay ? 1 : 0 }]}>
-              <YouTubePlayer
-                ref={playerRef}
-                videoId={trailer.videoId}
-                startSeconds={0}
-                endSeconds={PREVIEW_DURATION}
-                loop
-                onReady={handlePlayerReady}
-                onError={handleTrailerError}
-                onStateChange={handleStateChange}
-                onPlaybackBlocked={handlePlaybackBlocked}
-              />
-            </View>
-          )}
 
           {/* Subtle gradient for title at bottom only */}
           {showTitle && (
@@ -439,10 +193,6 @@ const styles = StyleSheet.create({
   posterImage: {
     width: '100%',
     height: '100%',
-  },
-  trailerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
   },
   gradient: {
     position: 'absolute',

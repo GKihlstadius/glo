@@ -243,9 +243,10 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100, // Above card stack
-    backgroundColor: '#000',
+    // NO background color - let poster show through when not playing
   },
   video: {
     flex: 1,
+    backgroundColor: '#000', // Only the video itself has black bg
   },
 });
