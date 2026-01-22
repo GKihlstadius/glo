@@ -121,13 +121,18 @@ export interface Session {
   swipes: Record<string, Record<string, 'like' | 'pass'>>;
   status: 'waiting' | 'active' | 'matched';
   matchedMovieId?: string;
-  mood?: Mood;
+  mood?: Mood | null;
   regionCode: string;
   mode: 'spellage'; // Only Spelläge exists as premium
   spellageSolo?: boolean; // true = Solo, false = Together
   blindChoice?: boolean; // MANDATORY in Spelläge: titles hidden until reveal
   createdAt: number;
   expiresAt: number;
+  // Spelläge 2.0 fields
+  totalRounds?: number; // Default 7
+  currentRound?: number; // 1-based
+  likes?: string[]; // Movie IDs liked this session
+  moviePool?: string[]; // Pre-generated movie IDs for rounds
 }
 
 export type Mood = 'calm' | 'fun' | 'intense' | 'short';
