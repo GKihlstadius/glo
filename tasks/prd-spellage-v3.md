@@ -5,6 +5,56 @@ Spelläge ska kännas som **Quiz Planet** — ett roligt, socialt multiplayer-sp
 
 ---
 
+## DESIGN SYSTEM — KRITISKT!
+
+### Appens Färgpalett (MÅSTE följas)
+```typescript
+COLORS = {
+  bg: '#000000',       // Pure black - huvudbakgrund
+  bgCard: '#0A0A0A',   // Near black - kort, modaler
+  text: '#FFFFFF',     // Vit - huvudtext
+  textMuted: '#666666', // Grå - sekundär text
+  accent: '#FFFFFF',   // Vit - accenter
+}
+```
+
+### Spelläge Accent (lila tema)
+```typescript
+SPELLAGE_COLORS = {
+  primary: '#8B5CF6',    // Lila - Spelläge huvudfärg
+  primaryLight: '#A78BFA', // Ljusare lila
+  primaryDark: '#7C3AED',  // Mörkare lila
+  success: '#22C55E',    // Grön - match/like
+  warning: '#EAB308',    // Guld - trophy/celebration
+  error: '#EF4444',      // Röd - pass/cancel
+}
+```
+
+### Quiz Planet Design-principer
+1. **Mörkt tema** - Samma som resten av appen (pure black)
+2. **Lila accenter** - Spelläge har lila som signatur
+3. **Stora, tydliga knappar** - Lätta att trycka på
+4. **Animationer** - Smooth, snabba, celebratory
+5. **Confetti/Sparkles** - Vid matcher och vinster
+6. **Progress indicators** - Tydliga rundor/steg
+7. **Avatar/ikoner** - Visa spelarna visuellt
+
+### UI-komponenter ska vara ENHETLIGA med:
+- Samma border-radius som MovieCard (16-24px)
+- Samma skuggor/elevation
+- Samma typografi (system fonts, samma storlekar)
+- Samma spacing (8px grid)
+- Samma animationstiming (spring config)
+
+### FÖRBJUDET:
+- ❌ Vita bakgrunder
+- ❌ Ljusa teman
+- ❌ Andra accentfärger än lila i Spelläge
+- ❌ Inkonsistenta border-radius
+- ❌ Olika font-styles
+
+---
+
 ## PRIORITY ORDER
 1. **Together Mode** (multiplayer) — Release-blocking
 2. **Trailer Integration** — Release-blocking  

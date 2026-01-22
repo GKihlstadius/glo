@@ -2,35 +2,6 @@
   "project": "Glo",
   "branchName": "ralph/spellage-v3",
   "description": "Spelläge 3.0 - Quiz Planet style multiplayer, trailers, algorithm polish",
-  "designSystem": {
-    "colors": {
-      "bg": "#000000",
-      "bgCard": "#0A0A0A",
-      "text": "#FFFFFF",
-      "textMuted": "#666666",
-      "spellagePrimary": "#8B5CF6",
-      "spellagePrimaryLight": "#A78BFA",
-      "success": "#22C55E",
-      "warning": "#EAB308",
-      "error": "#EF4444"
-    },
-    "rules": [
-      "Use COLORS from src/lib/constants.ts for all backgrounds and text",
-      "Spelläge uses purple (#8B5CF6) as accent color",
-      "Pure black backgrounds only - NO white or light themes",
-      "Border radius: 16-24px for cards, 12px for buttons",
-      "Same typography and spacing as rest of app",
-      "Quiz Planet style: fun, animated, celebratory",
-      "All UI must look unified with existing app screens"
-    ],
-    "forbidden": [
-      "White backgrounds",
-      "Light themes",
-      "Inconsistent border-radius",
-      "Different font styles",
-      "Non-purple accent colors in Spelläge"
-    ]
-  },
   "userStories": [
     {
       "id": "US-030",
@@ -61,15 +32,11 @@
         "Cancel button that deletes session and navigates back",
         "Subscribe to realtime session updates",
         "Auto-navigate to /session when guest joins (status changes to 'active')",
-        "DESIGN: Pure black background (COLORS.bg), purple accents (#8B5CF6)",
-        "DESIGN: Code displayed in large white text, centered",
-        "DESIGN: QR code on dark card (COLORS.bgCard), rounded corners 16px",
-        "DESIGN: Cancel button matches app button style (red, rounded)",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Quiz Planet style waiting screen - must match app's dark theme"
+      "notes": "Quiz Planet style waiting screen"
     },
     {
       "id": "US-032",
@@ -101,15 +68,11 @@
         "Clear error states",
         "Join button enabled when 6 chars entered",
         "Same join logic as deep link",
-        "DESIGN: Pure black background, centered content",
-        "DESIGN: Input field on dark card (COLORS.bgCard), white text, large font",
-        "DESIGN: Join button purple (#8B5CF6), rounded 12px",
-        "DESIGN: Error text in red (#EF4444)",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
-      "notes": "Backup for when deep links fail - same dark theme as app"
+      "notes": "Backup for when deep links fail"
     },
     {
       "id": "US-034",
@@ -144,16 +107,11 @@
         "Show poster prominently",
         "Auto-dismiss after 3 seconds or on tap",
         "Track matches in session state",
-        "DESIGN: Semi-transparent black overlay",
-        "DESIGN: Gold (#EAB308) for 'MATCH!' text and trophy icon",
-        "DESIGN: Confetti in purple, gold, green colors",
-        "DESIGN: Movie title in large white text",
-        "DESIGN: Same card style as MovieCard (rounded 16px)",
         "Typecheck passes"
       ],
       "priority": 6,
       "passes": false,
-      "notes": "This is the reward moment - Quiz Planet style celebration with app colors"
+      "notes": "This is the reward moment - make it feel amazing"
     },
     {
       "id": "US-036",
@@ -168,17 +126,11 @@
         "Autoplay trailer for first match (if trailer gate passes)",
         "Play Again button (creates new session)",
         "Exit button (returns to home)",
-        "DESIGN: Pure black background (COLORS.bg)",
-        "DESIGN: Trophy/celebration icon in gold (#EAB308)",
-        "DESIGN: Matched movies in horizontal scroll, same card style",
-        "DESIGN: Stats text in muted gray (COLORS.textMuted)",
-        "DESIGN: Play Again button purple (#8B5CF6)",
-        "DESIGN: Exit button gray (COLORS.bgCard)",
         "Typecheck passes"
       ],
       "priority": 7,
       "passes": false,
-      "notes": "End on a high note - celebratory but matches app's dark aesthetic"
+      "notes": "End on a high note with clear next actions"
     },
     {
       "id": "US-037",
