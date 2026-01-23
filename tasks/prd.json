@@ -218,7 +218,7 @@
       ],
       "priority": 13,
       "passes": true,
-      "notes": "Implemented join flow with deep link support (vibecode://join/{code}), manual code entry, session validation, and error handling"
+      "notes": "Implemented join flow with deep link support (vibecode://join/{code}), manual code entry at /join, session registry for validation, localized error messages"
     },
     {
       "id": "US-014",
