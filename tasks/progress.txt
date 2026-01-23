@@ -246,3 +246,18 @@
   - updateSessionInRegistry() syncs session state for other participants
 ---
 
+## 2026-01-23 - US-015
+- What was implemented: Blind Choice UI with reveal animation
+- Files changed:
+  - src/components/MovieCard.tsx (updated) - added reveal animation for blind mode
+- **Learnings for future iterations:**
+  - MovieCard already had blindMode and isRevealed props - just needed animation
+  - revealOpacity shared value initialized based on blindMode && !isRevealed state
+  - useEffect triggers animation when isRevealed changes from false to true
+  - 400ms fade-in with Easing.out(Easing.ease) feels smooth and natural
+  - Animated.View wrapper needed for gradient since LinearGradient doesn't support style prop with animated values
+  - Streaming icons are shown OUTSIDE MovieCard in session.tsx (bottom section), so they're always visible regardless of blind mode
+  - showTitle = !blindMode || isRevealed - title elements only render when should be visible
+  - revealAnimatedStyle only applied when blindMode is true (otherwise opacity stays at 1)
+---
+

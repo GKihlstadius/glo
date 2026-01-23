@@ -249,8 +249,8 @@
         "Verify in browser"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added reveal animation with 400ms fade-in using react-native-reanimated. Title/year hidden when blindMode=true until isRevealed=true. Streaming icons already shown outside MovieCard in session.tsx."
     },
     {
       "id": "US-016",
