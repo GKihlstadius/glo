@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Coffee, Flame, Zap, Clock, Sparkles, User, Users, Dices, Heart } from 'lucide-react-native';
+import { ArrowLeft, Coffee, Flame, Zap, Clock, Sparkles, User, Users, Dices, Heart, LogIn } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -15,8 +15,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
-import { Mood } from '@/lib/types';
+import { Mood, Session } from '@/lib/types';
 import { generateSessionMovies } from '@/lib/movies';
+import { registerSession } from '@/lib/session-registry';
 
 // Spelläge is the ONLY premium feature
 // Inside Spelläge: Solo or Together
@@ -55,6 +56,7 @@ export default function SpellageScreen() {
   const titleTranslateY = useSharedValue(20);
   const soloCardProgress = useSharedValue(0);
   const togetherCardProgress = useSharedValue(0);
+  const joinLinkOpacity = useSharedValue(0);
   const moodGridOpacity = useSharedValue(0);
 
   // Entrance animations
@@ -72,6 +74,7 @@ export default function SpellageScreen() {
     titleTranslateY.value = withDelay(150, withSpring(0, { damping: 20, stiffness: 200 }));
     soloCardProgress.value = withDelay(300, withSpring(1, { damping: 18, stiffness: 120 }));
     togetherCardProgress.value = withDelay(400, withSpring(1, { damping: 18, stiffness: 120 }));
+    joinLinkOpacity.value = withDelay(500, withTiming(1, { duration: 300 }));
   }, [step]);
 
   // Animated styles
@@ -100,6 +103,10 @@ export default function SpellageScreen() {
     ],
   }));
 
+  const joinLinkAnimStyle = useAnimatedStyle(() => ({
+    opacity: joinLinkOpacity.value,
+  }));
+
   const handleModeSelect = (mode: SpellageMode) => {
     if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedMode(mode);
@@ -107,6 +114,7 @@ export default function SpellageScreen() {
     // Animate out then change step
     soloCardProgress.value = withTiming(0, { duration: 200 });
     togetherCardProgress.value = withTiming(0, { duration: 200 });
+    joinLinkOpacity.value = withTiming(0, { duration: 150 });
     titleOpacity.value = withTiming(0, { duration: 150 });
 
     setTimeout(() => {
@@ -130,7 +138,7 @@ export default function SpellageScreen() {
     const sessionMovies = generateSessionMovies(country.code, actualMood, 7);
 
     // Create session
-    setSession({
+    const newSession: Session = {
       id: sessionId,
       code: sessionCode,
       hostDeviceId: deviceId,
@@ -148,10 +156,13 @@ export default function SpellageScreen() {
       blindChoice: true, // MANDATORY: titles hidden in Spelläge
       createdAt: now,
       expiresAt: now + 2 * 60 * 60 * 1000, // 2 hours
-    });
+    };
 
-    // Route based on mode
+    setSession(newSession);
+
+    // Register session for Together mode so others can join
     if (selectedMode === 'together') {
+      registerSession(newSession);
       router.push('/waiting-room');
     } else {
       router.push('/session');
@@ -282,6 +293,25 @@ export default function SpellageScreen() {
                 </View>
               </AnimatedPressable>
             </View>
+
+            {/* Join Room Link */}
+            <Animated.View style={[styles.joinLinkContainer, joinLinkAnimStyle]}>
+              <Pressable
+                onPress={() => {
+                  if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push('/join');
+                }}
+                style={({ pressed }) => [
+                  styles.joinLink,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <LogIn size={18} color={COLORS.textMuted} />
+                <Text style={styles.joinLinkText}>
+                  {lang === 'sv' ? 'Har du en kod? Gå med i rum' : 'Have a code? Join a room'}
+                </Text>
+              </Pressable>
+            </Animated.View>
 
             {/* Footer hint */}
             <Animated.View style={[styles.footerHint, titleAnimStyle]}>
@@ -440,6 +470,22 @@ const styles = StyleSheet.create({
   },
   cardArrow: {
     opacity: 0.4,
+  },
+  joinLinkContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  joinLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  joinLinkText: {
+    color: COLORS.textMuted,
+    fontSize: 15,
+    fontWeight: '500',
   },
   footerHint: {
     position: 'absolute',

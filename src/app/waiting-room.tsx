@@ -106,8 +106,8 @@ export default function WaitingRoomScreen() {
   const buttonsOpacity = useSharedValue(0);
   const pulseScale = useSharedValue(1);
 
-  // Deep link URL
-  const joinLink = session ? `glo://join/${session.code}` : '';
+  // Deep link URL (uses vibecode scheme from app.json)
+  const joinLink = session ? `vibecode://join/${session.code}` : '';
 
   // Entrance animations
   useEffect(() => {

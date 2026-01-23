@@ -24,7 +24,10 @@
 - Together mode waiting room at src/app/waiting-room.tsx with QR code and share functionality
 - Session type has extended fields for Together mode: hostDeviceId, movies[], currentRound, totalRounds, matches[]
 - generateSessionMovies(countryCode, mood, count) in movies.ts for pre-generating round movies
-- Deep link format for joining: glo://join/{code}
+- Deep link format for joining: vibecode://join/{code} (NOT glo://)
+- Session registry at src/lib/session-registry.ts for storing/validating sessions
+- Join flow: src/app/join.tsx (manual entry) and src/app/join/[code].tsx (deep link handler)
+- registerSession() should be called when creating Together mode sessions
 
 ---
 
@@ -197,5 +200,26 @@
   - Pulse animation using withRepeat(withTiming(...), -1, true) for waiting indicator
   - Route registration in _layout.tsx with gestureEnabled: false to prevent back swipe
   - Session status 'waiting' used for Together mode before game starts
+---
+
+## 2026-01-23 - US-013
+- What was implemented: Together Mode - Join via Link/QR
+- Files changed:
+  - src/lib/session-registry.ts (new) - session storage and join validation
+  - src/app/join.tsx (new) - manual code entry screen
+  - src/app/join/[code].tsx (new) - deep link handler for vibecode://join/{code}
+  - src/app/spellage.tsx (updated) - added "Join a room" link, register session on creation
+  - src/app/waiting-room.tsx (updated) - changed deep link from glo:// to vibecode://
+  - src/app/_layout.tsx (updated) - registered join and join/[code] routes
+- **Learnings for future iterations:**
+  - Deep link scheme is 'vibecode' (from app.json), not 'glo' - use vibecode://join/{code}
+  - Expo Router dynamic routes: src/app/join/[code].tsx handles vibecode://join/ABC123
+  - Session registry uses AsyncStorage with SESSION_PREFIX for storage
+  - validateJoinCode() returns detailed error types: not_found, expired, already_started, full
+  - joinSession() handles both new joins and re-joins (idempotent)
+  - Code entry boxes use hidden TextInput with visible Pressable boxes overlay
+  - Error messages are localized (sv/en) based on country.language
+  - Join screen navigates to /session after successful join
+  - Dynamic route screen shows status feedback (joining/success/error) with animations
 ---
 
