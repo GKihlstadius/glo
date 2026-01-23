@@ -105,6 +105,10 @@
 - SwipeCard accepts onGestureStart/onGestureEnd props for trailer integration
 - performance.now() used for precise timing measurement of stop operations
 - Stop operations failing >100ms threshold are recorded as failures to gate
+- usePosterFallback(options) hook at src/lib/usePosterFallback.ts for graceful fallback behavior
+- Blink-stop threshold: 2000ms - videos stopping within this time are recorded as failures
+- Loading state capped at 500ms maximum display time
+- Poster always visible as base layer; player overlays poster when ready
 ---
 
 ## 2026-01-21 - US-007
@@ -120,5 +124,21 @@
   - hasAutoplayedRef prevents multiple triggers per card
   - reset() should be called when movie changes to allow new autoplay
   - State changes use functional updates to avoid stale closures
+---
+
+## 2026-01-23 - US-009
+- What was implemented: Poster Fallback Behavior
+- Files changed: src/lib/usePosterFallback.ts (new), src/components/TrailerPlayer.tsx (updated)
+- **Learnings for future iterations:**
+  - usePosterFallback hook manages all fallback states and blink-stop detection
+  - Blink-stop: video stopping within 2 seconds of starting is recorded as failure
+  - recordBlinkStop() from trailer-gate.ts marks session as failed
+  - Loading state capped at 500ms (MAX_LOADING_TIME_MS constant)
+  - Poster is always showPoster=true (constant) - it's the base layer
+  - showPlayer controls whether TrailerPlayer overlays the poster
+  - onLoadStart/onLoadComplete callbacks added to TrailerPlayer for timing integration
+  - Silent error handling: onLoadError hides player without any error UI
+  - shouldShowPlayer() helper method checks all conditions (source, errors, blink-stops)
+  - State resets automatically when movieId changes via useEffect
 ---
 
