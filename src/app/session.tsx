@@ -15,7 +15,7 @@ import { useSessionMovies, haveAllParticipantsSwiped, isMovieMatch } from '@/lib
 import { updateSessionInRegistry } from '@/lib/session-registry';
 
 // Spelläge game config
-const ROUNDS_TO_WIN = 5; // First to get 5 likes wins
+// Note: Game now uses round-based gameplay (7 rounds) instead of "first to X likes"
 
 export default function SessionScreen() {
   const insets = useSafeAreaInsets();
@@ -58,10 +58,12 @@ export default function SessionScreen() {
   // Determine if we're in Together mode (not solo)
   const isTogetherMode = Boolean(session && !session.spellageSolo);
 
-  // Initialize feed engine (only for Solo mode where we don't use session movies)
+  // Initialize feed engine (only when NOT using session movies)
+  // Spelläge (both Solo and Together) uses pre-generated session.movies
+  // Feed engine is used for regular swipe mode without session
   useEffect(() => {
-    // Skip feed engine for Together mode - we use session.movies instead
-    if (isTogetherMode && isSessionMode) {
+    // Skip feed engine if we have session movies (both Solo and Together Spelläge modes)
+    if (isSessionMode) {
       return;
     }
 
@@ -79,25 +81,34 @@ export default function SessionScreen() {
     const second = feedEngineRef.current.getNext();
     setCurrentItem(first);
     setNextItem(second);
-  }, [session?.regionCode, session?.mood, country.code, isTogetherMode, isSessionMode]);
+  }, [session?.regionCode, session?.mood, country.code, isSessionMode]);
 
-  // Check for winner in Spelläge mode
+  // Check for game completion in Spelläge mode (after all rounds finished)
   useEffect(() => {
-    if (session?.mode === 'spellage' && sessionLikes.length >= ROUNDS_TO_WIN) {
-      // Pick a random liked movie as the winner
-      const winnerIdx = Math.floor(Math.random() * sessionLikes.length);
-      const winnerId = sessionLikes[winnerIdx];
-      const winnerMovie = getMovie(winnerId, country.code);
+    if (session?.mode === 'spellage' && session.status === 'completed' && !showWinnerReveal) {
+      // Game is complete - all rounds done
+      if (sessionLikes.length > 0) {
+        // Pick a random liked movie as the winner
+        const winnerIdx = Math.floor(Math.random() * sessionLikes.length);
+        const winnerId = sessionLikes[winnerIdx];
+        const winnerMovie = getMovie(winnerId, country.code);
 
-      if (winnerMovie) {
-        setWinner(winnerMovie);
+        if (winnerMovie) {
+          setWinner(winnerMovie);
+          setShowWinnerReveal(true);
+          if (haptic) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        }
+      } else {
+        // No likes at all - still show completion state
         setShowWinnerReveal(true);
         if (haptic) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
       }
     }
-  }, [sessionLikes.length, session?.mode, country.code, haptic]);
+  }, [session?.status, session?.mode, sessionLikes, country.code, haptic, showWinnerReveal]);
 
   // Record swipe to session state and sync with registry
   const recordSwipeToSession = useCallback(
@@ -132,22 +143,35 @@ export default function SessionScreen() {
       }
 
       // Check if we should advance to next round
-      // (when all participants have swiped on current movie)
+      // For Solo mode: always advance after swipe
+      // For Together mode: advance when all participants have swiped
       let newRound = session.currentRound;
-      const allSwiped = session.participants.every(
-        pid => updatedSwipes[pid]?.[movieId] !== undefined
-      );
-      if (allSwiped && newRound < session.totalRounds) {
-        newRound = newRound + 1;
+      if (session.spellageSolo) {
+        // Solo mode: advance immediately after each swipe
+        if (newRound < session.totalRounds) {
+          newRound = newRound + 1;
+        }
+      } else {
+        // Together mode: advance when all participants have swiped
+        const allSwiped = session.participants.every(
+          pid => updatedSwipes[pid]?.[movieId] !== undefined
+        );
+        if (allSwiped && newRound < session.totalRounds) {
+          newRound = newRound + 1;
+        }
       }
+
+      // Determine session status
+      // Mark as completed when current round exceeds total rounds
+      const isGameComplete = newRound > session.totalRounds;
+      const newStatus = isGameComplete ? 'completed' as const : session.status;
 
       // Update session
       const finalSession = {
         ...updatedSession,
         matches: newMatches,
         currentRound: newRound,
-        // Mark as completed if all rounds done
-        status: newRound > session.totalRounds ? 'completed' as const : session.status,
+        status: newStatus,
       };
 
       setSession(finalSession);
@@ -163,7 +187,9 @@ export default function SessionScreen() {
   const handleSwipe = useCallback(
     (direction: 'left' | 'right' | 'up') => {
       // Get current movie based on mode
-      const movie = isTogetherMode && isSessionMode
+      // Session mode (both Solo and Together) uses sessionCurrentMovie
+      // Non-session mode uses feed engine
+      const movie = isSessionMode
         ? sessionCurrentMovie?.movie
         : currentItem?.movie;
 
@@ -179,11 +205,11 @@ export default function SessionScreen() {
           setRevealedMovies(prev => new Set(prev).add(movie.id));
         }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Record to session (Together mode sync)
+        // Record to session
         recordSwipeToSession(movie.id, 'like');
       } else if (direction === 'left') {
         passMovie(movie.id);
-        // Record to session (Together mode sync)
+        // Record to session
         recordSwipeToSession(movie.id, 'pass');
       } else if (direction === 'up') {
         saveMovie(movie.id);
@@ -194,17 +220,18 @@ export default function SessionScreen() {
           setRevealedMovies(prev => new Set(prev).add(movie.id));
         }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Record saves as likes to session (Together mode sync)
+        // Record saves as likes to session
         recordSwipeToSession(movie.id, 'like');
       }
 
-      // Record to feed engine if using it
-      if (feedEngineRef.current) {
+      // Record to feed engine if using it (non-session mode)
+      if (feedEngineRef.current && !isSessionMode) {
         feedEngineRef.current.recordSwipe(movie.id, direction === 'left' ? 'pass' : direction === 'up' ? 'save' : 'like');
       }
 
-      // Advance queue for Solo mode (Together mode advances via session.currentRound)
-      if (!isTogetherMode || !isSessionMode) {
+      // Advance queue for non-session mode (uses feed engine)
+      // Session mode advances via session.currentRound in recordSwipeToSession
+      if (!isSessionMode) {
         setCurrentItem(nextItem);
         const newNext = feedEngineRef.current?.getNext() ?? null;
         setNextItem(newNext);
@@ -214,7 +241,6 @@ export default function SessionScreen() {
       currentItem,
       nextItem,
       sessionCurrentMovie,
-      isTogetherMode,
       isSessionMode,
       likeMovie,
       passMovie,
@@ -246,8 +272,8 @@ export default function SessionScreen() {
     handleSwipe('right');
   }, [haptic, handleSwipe]);
 
-  // Get current movie (from session movies in Together mode, feed engine in Solo mode)
-  const displayMovie = isTogetherMode && isSessionMode
+  // Get current movie (from session movies in Spelläge modes, feed engine otherwise)
+  const displayMovie = isSessionMode
     ? sessionCurrentMovie?.movie
     : currentItem?.movie;
 
@@ -275,58 +301,94 @@ export default function SessionScreen() {
     }
   };
 
-  // Winner reveal screen (Spelläge dramatic reveal)
-  if (showWinnerReveal && winner) {
+  // Game complete screen (Spelläge dramatic reveal after all rounds)
+  if (showWinnerReveal) {
     return (
       <View className="flex-1" style={{ backgroundColor: COLORS.bg }}>
         <View style={{ height: insets.top }} />
 
-        {/* Winner header */}
-        <View style={styles.winnerHeader}>
-          <Trophy size={24} color="#EAB308" />
-          <Text style={styles.winnerTitle}>
-            {lang === 'sv' ? 'Vinnare!' : 'Winner!'}
-          </Text>
-        </View>
+        {winner ? (
+          <>
+            {/* Winner header */}
+            <View style={styles.winnerHeader}>
+              <Trophy size={24} color="#EAB308" />
+              <Text style={styles.winnerTitle}>
+                {lang === 'sv' ? 'Vinnare!' : 'Winner!'}
+              </Text>
+            </View>
 
-        {/* Winner movie card with auto-playing trailer */}
-        <View style={styles.cardArea}>
-          <MovieCard
-            movie={winner}
-            onSwipe={() => {}} // Disable swipe on winner
-            haptic={haptic}
-            showTrailerOnWin={true} // Dramatic trailer reveal
-          />
-        </View>
-
-        {/* Bottom section */}
-        <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
-          {/* Streaming providers */}
-          {winnerProviderIds.length > 0 && (
-            <View style={styles.providerSection}>
-              <StreamingRow
-                providerIds={winnerProviderIds}
-                maxVisible={4}
+            {/* Winner movie card with auto-playing trailer */}
+            <View style={styles.cardArea}>
+              <MovieCard
+                movie={winner}
+                onSwipe={() => {}} // Disable swipe on winner
+                haptic={haptic}
+                showTrailerOnWin={true} // Dramatic trailer reveal
               />
             </View>
-          )}
 
-          {/* Watch now / Exit buttons */}
-          <View style={styles.winnerActions}>
-            <Pressable
-              onPress={handleExit}
-              style={({ pressed }) => [
-                styles.winnerButton,
-                styles.winnerExitButton,
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text style={styles.winnerButtonText}>
-                {lang === 'sv' ? 'Avsluta' : 'Exit'}
+            {/* Bottom section */}
+            <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+              {/* Streaming providers */}
+              {winnerProviderIds.length > 0 && (
+                <View style={styles.providerSection}>
+                  <StreamingRow
+                    providerIds={winnerProviderIds}
+                    maxVisible={4}
+                  />
+                </View>
+              )}
+
+              {/* Exit button */}
+              <View style={styles.winnerActions}>
+                <Pressable
+                  onPress={handleExit}
+                  style={({ pressed }) => [
+                    styles.winnerButton,
+                    styles.winnerExitButton,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Text style={styles.winnerButtonText}>
+                    {lang === 'sv' ? 'Avsluta' : 'Exit'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            {/* No winner - game complete without likes */}
+            <View style={styles.noWinnerContent}>
+              <Text style={styles.noWinnerTitle}>
+                {lang === 'sv' ? 'Spelomgång slutförd!' : 'Game complete!'}
               </Text>
-            </Pressable>
-          </View>
-        </View>
+              <Text style={styles.noWinnerSubtitle}>
+                {lang === 'sv'
+                  ? 'Ingen film valdes den här gången. Prova igen!'
+                  : 'No film was picked this time. Try again!'}
+              </Text>
+            </View>
+
+            {/* Exit button */}
+            <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
+              <View style={styles.winnerActions}>
+                <Pressable
+                  onPress={handleExit}
+                  style={({ pressed }) => [
+                    styles.winnerButton,
+                    styles.winnerExitButton,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                >
+                  <Text style={styles.winnerButtonText}>
+                    {lang === 'sv' ? 'Avsluta' : 'Exit'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
       </View>
     );
   }
@@ -341,8 +403,8 @@ export default function SessionScreen() {
         </Pressable>
       </View>
 
-      {/* Round indicator for Together mode */}
-      {isTogetherMode && isSessionMode && (
+      {/* Round indicator for Spelläge (both Solo and Together modes) */}
+      {session?.mode === 'spellage' && isSessionMode && (
         <View style={styles.roundIndicator}>
           <Text style={styles.roundText}>
             {lang === 'sv' ? `Runda ${currentRound} av ${totalRounds}` : `Round ${currentRound} of ${totalRounds}`}
@@ -519,5 +581,24 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 16,
     fontWeight: '500',
+  },
+  noWinnerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  noWinnerTitle: {
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  noWinnerSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
