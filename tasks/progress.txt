@@ -159,3 +159,19 @@
   - getTrailerSystemStatus() returns enabled state + gate status + metrics for debugging
 ---
 
+## 2026-01-23 - US-011
+- What was implemented: Spelläge Entry Flow Redesign
+- Files changed: src/app/spellage.tsx (updated)
+- **Learnings for future iterations:**
+  - react-native-reanimated v3 for smooth animations (withSpring, withTiming, withDelay)
+  - AnimatedPressable created via Animated.createAnimatedComponent(Pressable)
+  - Staggered entrance animations create premium feel (100ms, 150ms, 300ms, 400ms delays)
+  - useAnimatedStyle hook returns style object with transform arrays
+  - interpolate() for mapping animation progress to transform values
+  - Card-based UI with subtle borders (rgba(255,255,255,0.06)) and glow effects
+  - Mode selection: Solo (User icon) and Together (Users icon with Heart badge)
+  - Exit animations before step change (withTiming 200ms, then setTimeout 220ms for state change)
+  - footerHint with italic text for subtle messaging about blind choice
+  - Mood selection preserved from original design but with updated styling
+---
+
