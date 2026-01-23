@@ -33,6 +33,25 @@ if [[ "$TOOL" != "amp" && "$TOOL" != "claude" ]]; then
   echo "Error: Invalid tool '$TOOL'. Must be 'amp' or 'claude'."
   exit 1
 fi
+
+# Check if the selected tool is installed
+if [[ "$TOOL" == "amp" ]]; then
+  if ! command -v amp &> /dev/null; then
+    echo "❌ Error: 'amp' is not installed."
+    echo ""
+    echo "Install with: sudo npm install -g @sourcegraph/amp"
+    echo "Or use Claude instead: ./scripts/ralph/ralph.sh --tool claude"
+    exit 1
+  fi
+elif [[ "$TOOL" == "claude" ]]; then
+  if ! command -v claude &> /dev/null; then
+    echo "❌ Error: 'claude' is not installed."
+    echo ""
+    echo "Install with: sudo npm install -g @anthropic-ai/claude-code"
+    echo "Or use Amp instead: ./scripts/ralph/ralph.sh --tool amp"
+    exit 1
+  fi
+fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRD_FILE="$SCRIPT_DIR/prd.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
