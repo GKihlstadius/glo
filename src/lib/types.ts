@@ -117,10 +117,15 @@ export interface FeedItem {
 export interface Session {
   id: string;
   code: string;
+  hostDeviceId: string; // Device that created the session
   participants: string[];
-  swipes: Record<string, Record<string, 'like' | 'pass'>>;
-  status: 'waiting' | 'active' | 'matched';
+  movies: string[]; // Pre-generated movie IDs for rounds
+  currentRound: number;
+  totalRounds: number;
+  swipes: Record<string, Record<string, 'like' | 'pass'>>; // deviceId -> movieId -> action
+  status: 'waiting' | 'active' | 'matched' | 'completed';
   matchedMovieId?: string;
+  matches: string[]; // Movie IDs that both participants liked
   mood?: Mood;
   regionCode: string;
   mode: 'spellage'; // Only Spelläge exists as premium

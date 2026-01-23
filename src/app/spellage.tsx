@@ -16,6 +16,7 @@ import Animated, {
 import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
 import { Mood } from '@/lib/types';
+import { generateSessionMovies } from '@/lib/movies';
 
 // Spelläge is the ONLY premium feature
 // Inside Spelläge: Solo or Together
@@ -122,14 +123,24 @@ export default function SpellageScreen() {
       : moodId;
 
     const now = Date.now();
+    const sessionCode = selectedMode === 'together' ? generateCode() : '';
+    const sessionId = Math.random().toString(36).slice(2);
+
+    // Generate movies for the session (7 rounds)
+    const sessionMovies = generateSessionMovies(country.code, actualMood, 7);
 
     // Create session
     setSession({
-      id: Math.random().toString(36).slice(2),
-      code: selectedMode === 'together' ? generateCode() : '',
+      id: sessionId,
+      code: sessionCode,
+      hostDeviceId: deviceId,
       participants: [deviceId],
+      movies: sessionMovies,
+      currentRound: 1,
+      totalRounds: 7,
       swipes: {},
-      status: 'active',
+      status: selectedMode === 'together' ? 'waiting' : 'active',
+      matches: [],
       mood: actualMood,
       regionCode: country.code,
       mode: 'spellage',
@@ -139,7 +150,12 @@ export default function SpellageScreen() {
       expiresAt: now + 2 * 60 * 60 * 1000, // 2 hours
     });
 
-    router.push('/session');
+    // Route based on mode
+    if (selectedMode === 'together') {
+      router.push('/waiting-room');
+    } else {
+      router.push('/session');
+    }
   };
 
   const handleBack = () => {

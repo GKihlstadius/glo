@@ -58,6 +58,7 @@ function RootLayoutNav() {
         <Stack.Screen name="liked" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="spellage" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="session" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="waiting-room" options={{ animation: 'slide_from_right', gestureEnabled: false }} />
       </Stack>
     </ThemeProvider>
   );

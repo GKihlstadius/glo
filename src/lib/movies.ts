@@ -361,6 +361,24 @@ export function getCatalogSize(countryCode: string): number {
   return getMovies(countryCode).length;
 }
 
+// Generate movies for a Spelläge session (pre-determined list)
+export function generateSessionMovies(
+  countryCode: string,
+  mood: Mood | null,
+  count: number
+): string[] {
+  let movies = getMovies(countryCode);
+
+  // Apply mood filter if specified
+  if (mood) {
+    movies = filterByMood(movies, mood);
+  }
+
+  // Shuffle and pick the required number
+  const shuffled = [...movies].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map(m => m.id);
+}
+
 // Get movies by bucket type (for feed engine)
 export function getMoviesByBucket(
   countryCode: string,
