@@ -266,8 +266,8 @@
         "Verify in browser"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Unified session movie usage for both Solo/Together modes. Round indicator shows for all Spelläge modes. Game completes after 7 rounds with winner reveal or no-picks state."
     },
     {
       "id": "US-017",

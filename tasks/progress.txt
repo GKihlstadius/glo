@@ -29,9 +29,11 @@
 - Join flow: src/app/join.tsx (manual entry) and src/app/join/[code].tsx (deep link handler)
 - registerSession() should be called when creating Together mode sessions
 - useSessionMovies(session, countryCode) hook at src/lib/useSessionMovies.ts for synchronized feed
-- Together mode uses session.movies[] array; Solo mode uses FeedEngine
+- Both Solo and Together Spelläge modes use session.movies[] for round-based play
 - recordSwipeToSession() syncs swipes to session.swipes and updates registry
 - isTogetherMode = session exists AND !session.spellageSolo
+- isSessionMode = session.movies.length > 0 (both Solo and Together use this for round-based play)
+- Game completion: session.status changes to 'completed' when currentRound > totalRounds
 
 ---
 
@@ -259,5 +261,21 @@
   - Streaming icons are shown OUTSIDE MovieCard in session.tsx (bottom section), so they're always visible regardless of blind mode
   - showTitle = !blindMode || isRevealed - title elements only render when should be visible
   - revealAnimatedStyle only applied when blindMode is true (otherwise opacity stays at 1)
+---
+
+## 2026-01-23 - US-016
+- What was implemented: Round-Based Gameplay for Spelläge
+- Files changed:
+  - src/app/session.tsx (updated) - round indicator, round advancement, game completion
+- **Learnings for future iterations:**
+  - Both Solo and Together Spelläge modes now use session.movies[] for consistent round-based play
+  - isSessionMode check: `Boolean(session && session.movies && session.movies.length > 0)`
+  - Solo mode: advances round immediately after each swipe (no waiting for others)
+  - Together mode: advances round when all participants have swiped on current movie
+  - Game completion triggered when session.status === 'completed' (set when newRound > totalRounds)
+  - Winner selection: random pick from sessionLikes array (local state, not session.swipes)
+  - No-winner state handled gracefully when sessionLikes.length === 0
+  - Round indicator shown for all Spelläge modes: `session?.mode === 'spellage' && isSessionMode`
+  - Feed engine only created when NOT in session mode (non-Spelläge swipe mode)
 ---
 
