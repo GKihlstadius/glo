@@ -11,6 +11,8 @@ import { COLORS } from '@/lib/constants';
 import { useStore } from '@/lib/store';
 import { FeedEngine, createFeedEngine } from '@/lib/feed-engine';
 import { getStreamingOffers, getMovie } from '@/lib/movies';
+import { useSessionMovies, haveAllParticipantsSwiped, isMovieMatch } from '@/lib/useSessionMovies';
+import { updateSessionInRegistry } from '@/lib/session-registry';
 
 // Spelläge game config
 const ROUNDS_TO_WIN = 5; // First to get 5 likes wins
@@ -21,6 +23,7 @@ export default function SessionScreen() {
   const haptic = useStore((s) => s.hapticEnabled);
   const session = useStore((s) => s.currentSession);
   const setSession = useStore((s) => s.setSession);
+  const deviceId = useStore((s) => s.deviceId);
   const likedMovies = useStore((s) => s.likedMovies);
   const passedMovies = useStore((s) => s.passedMovies);
   const savedMovies = useStore((s) => s.savedMovies);
@@ -41,11 +44,27 @@ export default function SessionScreen() {
   // Blind choice: track which movies have been revealed (liked/saved)
   const [revealedMovies, setRevealedMovies] = useState<Set<string>>(new Set());
 
-  // Feed engine reference
+  // Feed engine reference (for Solo mode / fallback)
   const feedEngineRef = useRef<FeedEngine | null>(null);
 
-  // Initialize feed engine with mood filter
+  // Session movies hook (for Together mode synchronized feed)
+  const {
+    currentMovie: sessionCurrentMovie,
+    isSessionMode,
+    totalRounds,
+    currentRound,
+  } = useSessionMovies(session, session?.regionCode || country.code);
+
+  // Determine if we're in Together mode (not solo)
+  const isTogetherMode = Boolean(session && !session.spellageSolo);
+
+  // Initialize feed engine (only for Solo mode where we don't use session movies)
   useEffect(() => {
+    // Skip feed engine for Together mode - we use session.movies instead
+    if (isTogetherMode && isSessionMode) {
+      return;
+    }
+
     feedEngineRef.current = createFeedEngine(
       session?.regionCode || country.code,
       tasteProfile,
@@ -60,7 +79,7 @@ export default function SessionScreen() {
     const second = feedEngineRef.current.getNext();
     setCurrentItem(first);
     setNextItem(second);
-  }, [session?.regionCode, session?.mood, country.code]);
+  }, [session?.regionCode, session?.mood, country.code, isTogetherMode, isSessionMode]);
 
   // Check for winner in Spelläge mode
   useEffect(() => {
@@ -80,15 +99,79 @@ export default function SessionScreen() {
     }
   }, [sessionLikes.length, session?.mode, country.code, haptic]);
 
+  // Record swipe to session state and sync with registry
+  const recordSwipeToSession = useCallback(
+    (movieId: string, action: 'like' | 'pass') => {
+      if (!session) return;
+
+      // Create updated swipes object
+      const updatedSwipes = {
+        ...session.swipes,
+        [deviceId]: {
+          ...(session.swipes[deviceId] || {}),
+          [movieId]: action,
+        },
+      };
+
+      // Check if this is a match (all participants liked)
+      const updatedSession = {
+        ...session,
+        swipes: updatedSwipes,
+      };
+
+      // Calculate matches
+      let newMatches = [...session.matches];
+      if (action === 'like') {
+        // Check if all participants have now liked this movie
+        const allParticipantsLiked = session.participants.every(
+          pid => updatedSwipes[pid]?.[movieId] === 'like'
+        );
+        if (allParticipantsLiked && !newMatches.includes(movieId)) {
+          newMatches = [...newMatches, movieId];
+        }
+      }
+
+      // Check if we should advance to next round
+      // (when all participants have swiped on current movie)
+      let newRound = session.currentRound;
+      const allSwiped = session.participants.every(
+        pid => updatedSwipes[pid]?.[movieId] !== undefined
+      );
+      if (allSwiped && newRound < session.totalRounds) {
+        newRound = newRound + 1;
+      }
+
+      // Update session
+      const finalSession = {
+        ...updatedSession,
+        matches: newMatches,
+        currentRound: newRound,
+        // Mark as completed if all rounds done
+        status: newRound > session.totalRounds ? 'completed' as const : session.status,
+      };
+
+      setSession(finalSession);
+
+      // Sync to registry for other participants (Together mode)
+      if (isTogetherMode) {
+        updateSessionInRegistry(finalSession);
+      }
+    },
+    [session, deviceId, setSession, isTogetherMode]
+  );
+
   const handleSwipe = useCallback(
     (direction: 'left' | 'right' | 'up') => {
-      if (!currentItem || !feedEngineRef.current) return;
+      // Get current movie based on mode
+      const movie = isTogetherMode && isSessionMode
+        ? sessionCurrentMovie?.movie
+        : currentItem?.movie;
 
-      const movie = currentItem.movie;
+      if (!movie) return;
 
+      // Record to local store
       if (direction === 'right') {
         likeMovie(movie.id);
-        feedEngineRef.current.recordSwipe(movie.id, 'like');
         // Track session likes for Spelläge
         setSessionLikes(prev => [...prev, movie.id]);
         // Reveal movie title in blind mode after like
@@ -96,27 +179,50 @@ export default function SessionScreen() {
           setRevealedMovies(prev => new Set(prev).add(movie.id));
         }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Record to session (Together mode sync)
+        recordSwipeToSession(movie.id, 'like');
       } else if (direction === 'left') {
         passMovie(movie.id);
-        feedEngineRef.current.recordSwipe(movie.id, 'pass');
+        // Record to session (Together mode sync)
+        recordSwipeToSession(movie.id, 'pass');
       } else if (direction === 'up') {
         saveMovie(movie.id);
-        feedEngineRef.current.recordSwipe(movie.id, 'save');
-        // Also count saves as likes for Spelläge
+        // Saves count as likes for Spelläge matching
         setSessionLikes(prev => [...prev, movie.id]);
         // Reveal movie title in blind mode after save
         if (session?.blindChoice) {
           setRevealedMovies(prev => new Set(prev).add(movie.id));
         }
         if (haptic) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Record saves as likes to session (Together mode sync)
+        recordSwipeToSession(movie.id, 'like');
       }
 
-      // Advance queue
-      setCurrentItem(nextItem);
-      const newNext = feedEngineRef.current.getNext();
-      setNextItem(newNext);
+      // Record to feed engine if using it
+      if (feedEngineRef.current) {
+        feedEngineRef.current.recordSwipe(movie.id, direction === 'left' ? 'pass' : direction === 'up' ? 'save' : 'like');
+      }
+
+      // Advance queue for Solo mode (Together mode advances via session.currentRound)
+      if (!isTogetherMode || !isSessionMode) {
+        setCurrentItem(nextItem);
+        const newNext = feedEngineRef.current?.getNext() ?? null;
+        setNextItem(newNext);
+      }
     },
-    [currentItem, nextItem, likeMovie, passMovie, saveMovie, haptic]
+    [
+      currentItem,
+      nextItem,
+      sessionCurrentMovie,
+      isTogetherMode,
+      isSessionMode,
+      likeMovie,
+      passMovie,
+      saveMovie,
+      haptic,
+      session?.blindChoice,
+      recordSwipeToSession,
+    ]
   );
 
   const handleExit = () => {
@@ -140,9 +246,14 @@ export default function SessionScreen() {
     handleSwipe('right');
   }, [haptic, handleSwipe]);
 
+  // Get current movie (from session movies in Together mode, feed engine in Solo mode)
+  const displayMovie = isTogetherMode && isSessionMode
+    ? sessionCurrentMovie?.movie
+    : currentItem?.movie;
+
   // Get current movie's streaming provider IDs
-  const currentProviderIds = currentItem
-    ? getStreamingOffers(currentItem.movie.id, session?.regionCode || country.code)
+  const currentProviderIds = displayMovie
+    ? getStreamingOffers(displayMovie.id, session?.regionCode || country.code)
         .slice(0, 4)
         .map(offer => offer.providerId)
     : [];
@@ -230,9 +341,18 @@ export default function SessionScreen() {
         </Pressable>
       </View>
 
+      {/* Round indicator for Together mode */}
+      {isTogetherMode && isSessionMode && (
+        <View style={styles.roundIndicator}>
+          <Text style={styles.roundText}>
+            {lang === 'sv' ? `Runda ${currentRound} av ${totalRounds}` : `Round ${currentRound} of ${totalRounds}`}
+          </Text>
+        </View>
+      )}
+
       {/* Main content - movie poster */}
       <View style={styles.cardArea}>
-        {!currentItem ? (
+        {!displayMovie ? (
           <View className="flex-1 items-center justify-center">
             <Text className="text-base mb-4" style={{ color: COLORS.textMuted }}>
               {lang === 'sv' ? 'Inga fler filmer' : 'No more movies'}
@@ -249,12 +369,12 @@ export default function SessionScreen() {
           </View>
         ) : (
           <MovieCard
-            key={currentItem.movie.id}
-            movie={currentItem.movie}
+            key={displayMovie.id}
+            movie={displayMovie}
             onSwipe={handleSwipe}
             haptic={haptic}
             blindMode={session?.blindChoice ?? false}
-            isRevealed={revealedMovies.has(currentItem.movie.id)}
+            isRevealed={revealedMovies.has(displayMovie.id)}
           />
         )}
       </View>
@@ -320,6 +440,15 @@ const styles = StyleSheet.create({
   },
   exitButton: {
     padding: 4,
+  },
+  roundIndicator: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  roundText: {
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '500',
   },
   cardArea: {
     flex: 1,

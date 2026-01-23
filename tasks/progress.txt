@@ -28,6 +28,10 @@
 - Session registry at src/lib/session-registry.ts for storing/validating sessions
 - Join flow: src/app/join.tsx (manual entry) and src/app/join/[code].tsx (deep link handler)
 - registerSession() should be called when creating Together mode sessions
+- useSessionMovies(session, countryCode) hook at src/lib/useSessionMovies.ts for synchronized feed
+- Together mode uses session.movies[] array; Solo mode uses FeedEngine
+- recordSwipeToSession() syncs swipes to session.swipes and updates registry
+- isTogetherMode = session exists AND !session.spellageSolo
 
 ---
 
@@ -221,5 +225,24 @@
   - Error messages are localized (sv/en) based on country.language
   - Join screen navigates to /session after successful join
   - Dynamic route screen shows status feedback (joining/success/error) with animations
+---
+
+## 2026-01-23 - US-014
+- What was implemented: Together Mode - Synchronized Feed
+- Files changed:
+  - src/lib/useSessionMovies.ts (new) - hook for synchronized feed access using session.movies
+  - src/app/session.tsx (updated) - uses session movies for Together mode, syncs swipes to session
+- **Learnings for future iterations:**
+  - useSessionMovies(session, countryCode) returns currentMovie, allMovies, isSessionMode, totalRounds, currentRound
+  - Session.movies[] already contains pre-generated movie IDs from generateSessionMovies() in spellage.tsx
+  - Together mode (isTogetherMode): session exists AND spellageSolo is false
+  - isSessionMode: session has movies array with items
+  - recordSwipeToSession() updates session.swipes[deviceId][movieId] and syncs to registry
+  - Match detection: check if all participants have liked the same movie
+  - Round advancement: happens when all participants have swiped on current movie
+  - Helper functions exported: hasDeviceSwiped(), getMovieSwipes(), haveAllParticipantsSwiped(), isMovieMatch(), getSessionMatches()
+  - Round indicator UI shows "Round X of Y" in Together mode
+  - FeedEngine only created for Solo mode - Together mode uses useSessionMovies
+  - updateSessionInRegistry() syncs session state for other participants
 ---
 
