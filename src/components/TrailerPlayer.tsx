@@ -80,6 +80,16 @@ interface TrailerPlayerProps {
    * Called when player becomes ready
    */
   onReady?: () => void;
+
+  /**
+   * Called when video starts loading
+   */
+  onLoadStart?: () => void;
+
+  /**
+   * Called when video has loaded and is ready to play
+   */
+  onLoadComplete?: () => void;
 }
 
 // ============================================================================
@@ -87,7 +97,7 @@ interface TrailerPlayerProps {
 // ============================================================================
 
 export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
-  function TrailerPlayer({ onPlaybackStart, onPlaybackEnd, onError, onReady }, ref) {
+  function TrailerPlayer({ onPlaybackStart, onPlaybackEnd, onError, onReady, onLoadStart, onLoadComplete }, ref) {
     // Player state
     const videoRef = useRef<Video>(null);
     const [isVisible, setIsVisible] = useState(false);
@@ -119,6 +129,7 @@ export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
           setIsLoaded(true);
           isReadyRef.current = true;
           onReady?.();
+          onLoadComplete?.();
         }
 
         // Track playing state
@@ -140,7 +151,7 @@ export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
           onPlaybackEnd?.();
         }
       },
-      [isLoaded, isPlayingState, onPlaybackStart, onPlaybackEnd, onError, onReady]
+      [isLoaded, isPlayingState, onPlaybackStart, onPlaybackEnd, onError, onReady, onLoadComplete]
     );
 
     const handleError = useCallback(
@@ -171,6 +182,7 @@ export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
 
           try {
             currentSourceRef.current = source;
+            onLoadStart?.();
 
             // Load and play the video
             await videoRef.current.unloadAsync();
@@ -208,7 +220,7 @@ export const TrailerPlayer = forwardRef<TrailerPlayerRef, TrailerPlayerProps>(
 
         isPlaying: () => isPlayingState,
       }),
-      [isPlayingState, onError, handleError]
+      [isPlayingState, onError, onLoadStart, handleError]
     );
 
     // ========================================================================
