@@ -11,6 +11,7 @@ import Animated, {
   Extrapolation,
   runOnJS,
   useAnimatedGestureHandler,
+  Easing,
 } from 'react-native-reanimated';
 import {
   PanGestureHandler,
@@ -76,6 +77,23 @@ export function MovieCard({
 }: MovieCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+
+  // Reveal animation for blind mode
+  const revealOpacity = useSharedValue(blindMode && !isRevealed ? 0 : 1);
+
+  // Animate reveal when isRevealed changes from false to true
+  useEffect(() => {
+    if (blindMode && isRevealed) {
+      // Animate title reveal with smooth fade-in
+      revealOpacity.value = withTiming(1, {
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+      });
+    } else if (!blindMode) {
+      // Not in blind mode, always visible
+      revealOpacity.value = 1;
+    }
+  }, [isRevealed, blindMode]);
 
   // Player ref for synchronous control
   const playerRef = useRef<YouTubePlayerRef>(null);
@@ -368,8 +386,13 @@ export function MovieCard({
     };
   });
 
-  // Determine if title should be shown
+  // Determine if title should be shown (in blind mode, show after reveal starts)
   const showTitle = !blindMode || isRevealed;
+
+  // Animated style for reveal transition
+  const revealAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: revealOpacity.value,
+  }));
 
   // Can show trailer overlay when playing
   const showTrailerOverlay = isPlaying && trailer && !trailerError;
@@ -407,21 +430,23 @@ export function MovieCard({
 
           {/* Subtle gradient for title at bottom only */}
           {showTitle && (
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
-              locations={[0.55, 0.75, 1]}
-              style={styles.gradient}
-            />
+            <Animated.View style={[styles.gradient, blindMode && revealAnimatedStyle]}>
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
+                locations={[0.55, 0.75, 1]}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
           )}
 
-          {/* Title + Year - hidden in blind mode until revealed */}
+          {/* Title + Year - hidden in blind mode until revealed with fade animation */}
           {showTitle && (
-            <View style={styles.infoContainer}>
+            <Animated.View style={[styles.infoContainer, blindMode && revealAnimatedStyle]}>
               <Text style={styles.title} numberOfLines={2}>
                 {movie.title}
               </Text>
               <Text style={styles.yearText}>{movie.year}</Text>
-            </View>
+            </Animated.View>
           )}
         </View>
       </Animated.View>
@@ -450,6 +475,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '35%',
+    overflow: 'hidden',
   },
   infoContainer: {
     position: 'absolute',
