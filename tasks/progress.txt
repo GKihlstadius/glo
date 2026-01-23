@@ -21,6 +21,10 @@
 - Apple sources return type 'apple' to distinguish from native (type 'native') sources
 - Trailer system integration test at src/lib/trailer-test.ts - call initializeTrailerSystem() at app start
 - isTrailerSystemEnabled() check required before triggering any trailer playback
+- Together mode waiting room at src/app/waiting-room.tsx with QR code and share functionality
+- Session type has extended fields for Together mode: hostDeviceId, movies[], currentRound, totalRounds, matches[]
+- generateSessionMovies(countryCode, mood, count) in movies.ts for pre-generating round movies
+- Deep link format for joining: glo://join/{code}
 
 ---
 
@@ -173,5 +177,25 @@
   - Exit animations before step change (withTiming 200ms, then setTimeout 220ms for state change)
   - footerHint with italic text for subtle messaging about blind choice
   - Mood selection preserved from original design but with updated styling
+---
+
+## 2026-01-23 - US-012
+- What was implemented: Together Mode - Session Creation
+- Files changed:
+  - src/lib/types.ts (updated Session type with new fields)
+  - src/lib/movies.ts (added generateSessionMovies function)
+  - src/app/spellage.tsx (updated session creation logic)
+  - src/app/_layout.tsx (added waiting-room route)
+  - src/app/waiting-room.tsx (new)
+- **Learnings for future iterations:**
+  - Session type now includes: hostDeviceId, movies[], currentRound, totalRounds, matches[]
+  - generateSessionMovies(countryCode, mood, count) pre-generates movie list for session
+  - Waiting room screen shows room code with copy functionality via expo-clipboard
+  - QR code generated using react-native-svg with deterministic pattern from code
+  - Deep link format: glo://join/{code} - to be handled in US-013
+  - Share API via React Native Share module for native share sheet
+  - Pulse animation using withRepeat(withTiming(...), -1, true) for waiting indicator
+  - Route registration in _layout.tsx with gestureEnabled: false to prevent back swipe
+  - Session status 'waiting' used for Together mode before game starts
 ---
 
