@@ -19,6 +19,8 @@
 - getAppleTrailerSource(movie) at src/lib/apple-trailer-source.ts for Apple Movie Previews
 - Apple iTunes Search API returns previewUrl for movie trailers (HLS/M4V format)
 - Apple sources return type 'apple' to distinguish from native (type 'native') sources
+- Trailer system integration test at src/lib/trailer-test.ts - call initializeTrailerSystem() at app start
+- isTrailerSystemEnabled() check required before triggering any trailer playback
 
 ---
 
@@ -140,5 +142,20 @@
   - Silent error handling: onLoadError hides player without any error UI
   - shouldShowPlayer() helper method checks all conditions (source, errors, blink-stops)
   - State resets automatically when movieId changes via useEffect
+---
+
+## 2026-01-23 - US-010
+- What was implemented: Trailer System Integration Test
+- Files changed: src/lib/trailer-test.ts (new)
+- **Learnings for future iterations:**
+  - runTrailerSystemTests() is the main test function that runs 50 autoplay + 50 swipe-stop simulations
+  - initializeTrailerSystem() is the entry point for app initialization - runs tests and enables if passed
+  - isTrailerSystemEnabled() check should be used before triggering any trailer playback
+  - Test logs are prefixed with [TrailerTest][timestamp] for easy filtering in expo.log
+  - simulateSwipeStop() returns realistic timing distribution (95% instant, 4% slow, 1% near-threshold)
+  - STOP_FAILURE_THRESHOLD_MS = 100ms matches useSwipeStop.ts threshold
+  - BLINK_STOP_THRESHOLD_MS = 2000ms matches usePosterFallback.ts threshold
+  - forceEnableTrailerSystem() available for dev/testing but should not be used in production
+  - getTrailerSystemStatus() returns enabled state + gate status + metrics for debugging
 ---
 
